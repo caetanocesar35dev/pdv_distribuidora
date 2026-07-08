@@ -12,13 +12,19 @@ async function main() {
   console.log('Iniciando seed do banco de dados...');
 
   // 1. Criar usuário administrador padrão
-  const adminEmail = 'admin@distribuidora.com';
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@distribuidora.com';
+  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+
+  if (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD) {
+    console.warn('⚠️ Credenciais de admin não encontradas no .env, usando o padrão.');
+  }
+
   const existingAdmin = await prisma.user.findUnique({
     where: { email: adminEmail },
   });
 
   if (!existingAdmin) {
-    const hashedPassword = await bcrypt.hash('admin123', 10);
+    const hashedPassword = await bcrypt.hash(adminPassword, 10);
     const admin = await prisma.user.create({
       data: {
         email: adminEmail,

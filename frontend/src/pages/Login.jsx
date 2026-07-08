@@ -8,7 +8,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  
+
   const { register, handleSubmit, formState: { errors } } = useForm({
     defaultValues: {
       email: 'admin@distribuidora.com',
@@ -24,10 +24,10 @@ export default function Login() {
         email: data.email,
         password: data.password
       });
-      
+
       localStorage.setItem('token', response.access_token);
       localStorage.setItem('user', JSON.stringify(response.user));
-      
+
       navigate('/pdv');
     } catch (err) {
       setError(err.message || 'Falha ao realizar login. Verifique as credenciais.');
@@ -102,12 +102,6 @@ export default function Login() {
             )}
           </button>
         </form>
-
-        <div className="mt-8 text-center border-t border-slate-800/80 pt-6">
-          <p className="text-slate-500 text-xs">
-            Admin Padrão: <span className="text-amber-500/70 font-semibold">admin@distribuidora.com</span> / <span className="text-amber-500/70 font-semibold">admin123</span>
-          </p>
-        </div>
       </div>
     </div>
   );
