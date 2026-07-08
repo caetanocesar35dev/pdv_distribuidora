@@ -1,0 +1,95 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  name      String
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+model Product {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  name        String
+  price       Float
+  stock       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  saleItems   SaleItem[]
+}
+
+model Sale {
+  id            Int         @id @default(autoincrement())
+  total         Float
+  paymentMethod PaymentMethod
+  status        SaleStatus  @default(COMPLETED)
+  createdAt     DateTime    @default(now())
+  items         SaleItem[]
+}
+
+enum PaymentMethod {
+  MONEY
+  PIX
+  DEBIT
+  CREDIT
+}
+
+enum SaleStatus {
+  COMPLETED
+  CANCELED
+}
+
+model SaleItem {
+  id        Int      @id @default(autoincrement())
+  saleId    Int
+  productId Int
+  quantity  Int
+  price     Float
+  sale      Sale     @relation(fields: [saleId], references: [id])
+  product   Product  @relation(fields: [productId], references: [id])
+}
+
+model CashRegister {
+  id          Int      @id @default(autoincrement())
+  openedAt    DateTime @default(now())
+  closedAt    DateTime?
+  initialBalance Float @default(0)
+  finalBalance   Float?
+  status      CashStatus @default(OPEN)
+  movements   CashMovement[]
+}
+
+enum CashStatus {
+  OPEN
+  CLOSED
+}
+
+model CashMovement {
+  id             Int          @id @default(autoincrement())
+  cashRegisterId Int
+  type           MovementType
+  amount         Float
+  description    String?
+  createdAt      DateTime     @default(now())
+  cashRegister   CashRegister @relation(fields: [cashRegisterId], references: [id])
+}
+
+enum MovementType {
+  IN
+  OUT
+  SALE
+}
