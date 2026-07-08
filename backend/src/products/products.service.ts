@@ -1,9 +1,18 @@
 import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-
+import { CreateProductDto } from './dto/create-product.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
 @Injectable()
 export class ProductsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
+
+  private generateBarcode(): string {
+    let code = '';
+    for (let i = 0; i < 13; i++) {
+      code += Math.floor(Math.random() * 10).toString();
+    }
+    return code;
+  }
 
   async findAll() {
     return this.prisma.product.findMany({
@@ -31,17 +40,21 @@ export class ProductsService {
     return product;
   }
 
-  async create(data: { code: string; name: string; price: number; stock?: number }) {
-    const existing = await this.prisma.product.findUnique({
-      where: { code: data.code },
-    });
-    if (existing) {
-      throw new ConflictException('Já existe um produto cadastrado com este código');
+  async create(data: CreateProductDto) {
+    let code = '';
+    let isUnique = false;
+
+    while (!isUnique) {
+      code = this.generateBarcode();
+      const existing = await this.prisma.product.findUnique({ where: { code } });
+      if (!existing) {
+        isUnique = true;
+      }
     }
 
     return this.prisma.product.create({
       data: {
-        code: data.code,
+        code,
         name: data.name,
         price: Number(data.price),
         stock: data.stock !== undefined ? Number(data.stock) : 0,
@@ -49,17 +62,8 @@ export class ProductsService {
     });
   }
 
-  async update(id: number, data: { code?: string; name?: string; price?: number; stock?: number }) {
+  async update(id: number, data: UpdateProductDto) {
     await this.findOne(id);
-
-    if (data.code) {
-      const existing = await this.prisma.product.findUnique({
-        where: { code: data.code },
-      });
-      if (existing && existing.id !== id) {
-        throw new ConflictException('Já existe outro produto cadastrado com este código');
-      }
-    }
 
     return this.prisma.product.update({
       where: { id },

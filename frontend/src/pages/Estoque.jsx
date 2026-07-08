@@ -41,7 +41,6 @@ export default function Estoque() {
     setSuccess('');
     try {
       await api.post('/products', {
-        code: data.code,
         name: data.name,
         price: parseFloat(data.price),
         stock: parseInt(data.stock) || 0
@@ -59,7 +58,6 @@ export default function Estoque() {
     setSuccess('');
     try {
       await api.patch(`/products/${selectedProduct.id}`, {
-        code: data.code,
         name: data.name,
         price: parseFloat(data.price)
       });
@@ -105,7 +103,6 @@ export default function Estoque() {
     reset();
 
     if (type === 'edit' && product) {
-      setValue('code', product.code);
       setValue('name', product.name);
       setValue('price', product.price);
     }
@@ -271,17 +268,6 @@ export default function Estoque() {
 
             <form onSubmit={handleSubmit(handleCreateProduct)} className="space-y-4">
               <div>
-                <label className="block text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">Código de Barras (Único)</label>
-                <input
-                  type="text"
-                  {...register('code', { required: 'Código de barras é obrigatório' })}
-                  placeholder="Ex: 7891234567890"
-                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-650 focus:outline-none focus:border-amber-500 transition-colors text-sm"
-                />
-                {errors.code && <span className="text-red-400 text-xs mt-1 block">{errors.code.message}</span>}
-              </div>
-
-              <div>
                 <label className="block text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">Nome do Produto</label>
                 <input
                   type="text"
@@ -337,16 +323,6 @@ export default function Estoque() {
             <h3 className="text-lg font-bold text-white mb-6">Editar Produto</h3>
 
             <form onSubmit={handleSubmit(handleEditProduct)} className="space-y-4">
-              <div>
-                <label className="block text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">Código de Barras</label>
-                <input
-                  type="text"
-                  {...register('code', { required: 'Código de barras é obrigatório' })}
-                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500 transition-colors text-sm"
-                />
-                {errors.code && <span className="text-red-400 text-xs mt-1 block">{errors.code.message}</span>}
-              </div>
-
               <div>
                 <label className="block text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">Nome do Produto</label>
                 <input

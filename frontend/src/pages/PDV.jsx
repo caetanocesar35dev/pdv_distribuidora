@@ -13,7 +13,6 @@ export default function PDV() {
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState([]);
   const [codeQuery, setCodeQuery] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('MONEY');
   const [isFinishing, setIsFinishing] = useState(false);
@@ -200,11 +199,6 @@ export default function PDV() {
     );
   }
 
-  // Filtragem de produtos para preenchimento manual rápido
-  const filteredProducts = products.filter(p => 
-    p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.code.includes(searchQuery)
-  );
 
   return (
     <div className="flex-1 p-6 font-sans text-white h-[calc(100vh-64px)] flex flex-col gap-6 overflow-hidden">
@@ -294,7 +288,7 @@ export default function PDV() {
                   type="text"
                   value={codeQuery}
                   onChange={(e) => setCodeQuery(e.target.value)}
-                  placeholder="Código de Barras + Enter"
+                  placeholder="Código do Produto + Enter"
                   className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-amber-500 transition-colors text-sm"
                 />
               </div>
