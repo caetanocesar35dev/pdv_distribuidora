@@ -9,21 +9,70 @@ export default function Historico() {
   const [sales, setSales] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterPayment, setFilterPayment] = useState('ALL');
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterStartTime, setFilterStartTime] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
+  const [filterEndTime, setFilterEndTime] = useState('');
+  
+  const [appliedSearch, setAppliedSearch] = useState('');
+  const [appliedPayment, setAppliedPayment] = useState('ALL');
+  const [appliedStartDate, setAppliedStartDate] = useState('');
+  const [appliedStartTime, setAppliedStartTime] = useState('');
+  const [appliedEndDate, setAppliedEndDate] = useState('');
+  const [appliedEndTime, setAppliedEndTime] = useState('');
+
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [userRole, setUserRole] = useState('USER');
+  
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState({ totalItems: 0, totalRevenue: 0, totalProfit: 0, totalPages: 1 });
 
   // Detalhes e reimpressão
   const [selectedSale, setSelectedSale] = useState(null);
 
   useEffect(() => {
-    loadSales();
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr);
+        setUserRole(user.role || 'USER');
+      } catch (e) {
+        console.error(e);
+      }
+    }
   }, []);
 
-  const loadSales = async () => {
+  useEffect(() => {
+    loadSales(1);
+  }, [appliedSearch, appliedPayment, appliedStartDate, appliedStartTime, appliedEndDate, appliedEndTime]);
+
+  const loadSales = async (currentPage = 1) => {
     try {
       setLoading(true);
-      const data = await api.get('/sales');
-      setSales(data);
+      const params = new URLSearchParams({ page: currentPage, limit: 15 });
+      
+      if (appliedSearch) params.append('search', appliedSearch);
+      if (appliedPayment !== 'ALL') params.append('paymentMethod', appliedPayment);
+      
+      if (appliedStartDate) {
+        const time = appliedStartTime || '00:00:00';
+        const start = new Date(`${appliedStartDate}T${time}`);
+        params.append('startDate', start.toISOString());
+      }
+      if (appliedEndDate) {
+        const time = appliedEndTime ? (appliedEndTime.length === 5 ? `${appliedEndTime}:59` : appliedEndTime) : '23:59:59.999';
+        const end = new Date(`${appliedEndDate}T${time}`);
+        params.append('endDate', end.toISOString());
+      }
+
+      const response = await api.get(`/sales?${params.toString()}`);
+      setSales(response.data);
+      if (response.meta) {
+        setMeta(response.meta);
+        setPage(response.meta.page);
+      }
     } catch (err) {
       console.error(err);
       setError('Erro ao carregar histórico de vendas');
@@ -72,10 +121,30 @@ export default function Historico() {
     return statuses[status] || { label: status, class: 'bg-slate-800 text-slate-400' };
   };
 
-  const filteredSales = sales.filter(s =>
-    s.id.toString().includes(searchQuery) ||
-    s.paymentMethod.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const handleSearch = () => {
+    setAppliedSearch(searchQuery);
+    setAppliedPayment(filterPayment);
+    setAppliedStartDate(filterStartDate);
+    setAppliedStartTime(filterStartTime);
+    setAppliedEndDate(filterEndDate);
+    setAppliedEndTime(filterEndTime);
+  };
+
+  const handleClearFilters = () => {
+    setSearchQuery('');
+    setFilterPayment('ALL');
+    setFilterStartDate('');
+    setFilterStartTime('');
+    setFilterEndDate('');
+    setFilterEndTime('');
+    
+    setAppliedSearch('');
+    setAppliedPayment('ALL');
+    setAppliedStartDate('');
+    setAppliedStartTime('');
+    setAppliedEndDate('');
+    setAppliedEndTime('');
+  };
 
   return (
     <div className="flex-1 p-6 font-sans text-white h-[calc(100vh-64px)] overflow-y-auto space-y-6">
@@ -151,18 +220,133 @@ export default function Historico() {
         </div>
       )}
 
-      {/* Barra de Busca */}
-      <div className="max-w-6xl mx-auto bg-slate-900/40 border border-slate-800 p-4 rounded-2xl flex items-center gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 w-5 h-5" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Pesquisar por número do pedido ou forma de pagamento..."
-            className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-850 rounded-xl text-white placeholder-slate-650 focus:outline-none focus:border-amber-500 transition-colors text-sm"
-          />
+      {/* Filtros e Busca */}
+      <div className="max-w-6xl mx-auto bg-slate-900/40 border border-slate-800 p-5 rounded-2xl flex flex-col gap-5">
+        
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-5 h-5" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Pesquisar por número do pedido..."
+              className="w-full pl-12 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-650 focus:outline-none focus:border-amber-500 transition-all text-sm shadow-inner"
+            />
+          </div>
+          
+          <select 
+            value={filterPayment}
+            onChange={e => setFilterPayment(e.target.value)}
+            className="px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500 transition-all text-sm min-w-[200px] shadow-inner cursor-pointer"
+          >
+            <option value="ALL">Todas as Formas (Pgto)</option>
+            <option value="MONEY">Dinheiro</option>
+            <option value="PIX">PIX</option>
+            <option value="DEBIT">Cartão de Débito</option>
+            <option value="CREDIT">Cartão de Crédito</option>
+          </select>
         </div>
+        
+        <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
+          
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto bg-slate-950/50 p-1.5 rounded-xl border border-slate-800/80">
+            <div className="flex items-center gap-2 pl-3">
+              <Calendar className="w-4 h-4 text-amber-500" />
+              <span className="text-slate-400 text-xs font-semibold uppercase tracking-wider">Início:</span>
+            </div>
+            <div className="flex gap-1">
+              <input
+                type="date"
+                value={filterStartDate}
+                onChange={e => setFilterStartDate(e.target.value)}
+                className="px-2 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-amber-500 text-xs w-full sm:w-auto"
+              />
+              <input
+                type="time"
+                value={filterStartTime}
+                onChange={e => setFilterStartTime(e.target.value)}
+                className="px-2 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-300 focus:outline-none focus:border-amber-500 text-xs w-full sm:w-auto"
+              />
+            </div>
+            
+            <div className="flex items-center gap-2 pl-3 sm:border-l border-slate-700">
+              <span className="text-slate-400 text-xs font-semibold uppercase tracking-wider">Fim:</span>
+            </div>
+            <div className="flex gap-1">
+              <input
+                type="date"
+                value={filterEndDate}
+                onChange={e => setFilterEndDate(e.target.value)}
+                className="px-2 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:outline-none focus:border-amber-500 text-xs w-full sm:w-auto"
+              />
+              <input
+                type="time"
+                value={filterEndTime}
+                onChange={e => setFilterEndTime(e.target.value)}
+                className="px-2 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-300 focus:outline-none focus:border-amber-500 text-xs w-full sm:w-auto"
+              />
+            </div>
+            
+            {(filterStartDate || filterEndDate) && (
+              <button 
+                onClick={() => { 
+                  setFilterStartDate(''); setFilterStartTime(''); 
+                  setFilterEndDate(''); setFilterEndTime(''); 
+                }}
+                className="text-slate-500 hover:text-red-400 p-2 rounded-lg transition-colors bg-slate-900 hover:bg-red-500/10 ml-1"
+                title="Limpar Datas"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3 w-full lg:w-auto justify-end">
+            {(appliedSearch || appliedPayment !== 'ALL' || appliedStartDate || appliedEndDate || searchQuery || filterPayment !== 'ALL' || filterStartDate || filterEndDate) && (
+              <button
+                onClick={handleClearFilters}
+                className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-sm transition-all flex justify-center items-center gap-2 active:scale-95"
+                title="Limpar todos os filtros"
+              >
+                <X className="w-4 h-4" />
+                Limpar Filtros
+              </button>
+            )}
+            <button
+              onClick={handleSearch}
+              className="flex-1 lg:flex-none px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-sm transition-all shadow-lg shadow-amber-500/20 active:scale-95 flex justify-center items-center gap-2"
+            >
+              <Search className="w-4 h-4" />
+              Filtrar Resultados
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Resumo Financeiro */}
+      <div className="max-w-6xl mx-auto flex flex-wrap gap-4">
+        <div className="flex-1 bg-slate-900/40 border border-slate-800 p-5 rounded-2xl flex items-center justify-between">
+          <div>
+            <span className="text-xs text-slate-400 uppercase font-bold tracking-wider block mb-1">Vendas (Filtradas)</span>
+            <span className="text-2xl font-black text-white">R$ {(meta.totalRevenue || 0).toFixed(2)}</span>
+          </div>
+          <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+            <History className="w-6 h-6 text-blue-400" />
+          </div>
+        </div>
+        
+        {userRole === 'ADMIN' && (
+          <div className="flex-1 bg-slate-900/40 border border-slate-800 p-5 rounded-2xl flex items-center justify-between">
+            <div>
+              <span className="text-xs text-slate-400 uppercase font-bold tracking-wider block mb-1">Lucro Líquido (Filtrado)</span>
+              <span className="text-2xl font-black text-emerald-400">R$ {(meta.totalProfit || 0).toFixed(2)}</span>
+            </div>
+            <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+              <CheckCircle2 className="w-6 h-6 text-emerald-400" />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Grid de Lista e Detalhes */}
@@ -182,20 +366,21 @@ export default function Historico() {
                     <th className="px-6 py-4">Pedido</th>
                     <th className="px-6 py-4">Data/Hora</th>
                     <th className="px-6 py-4 text-right">Total</th>
+                    {userRole === 'ADMIN' && <th className="px-6 py-4 text-right">Lucro</th>}
                     <th className="px-6 py-4 text-center">Pagamento</th>
                     <th className="px-6 py-4 text-center">Status</th>
                     <th className="px-6 py-4 text-center">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 text-sm">
-                  {filteredSales.length === 0 ? (
+                  {sales.length === 0 ? (
                     <tr>
-                      <td colSpan="6" className="px-6 py-12 text-center text-slate-500">
+                      <td colSpan={userRole === 'ADMIN' ? 7 : 6} className="px-6 py-12 text-center text-slate-500">
                         Nenhuma venda registrada ou correspondente à pesquisa.
                       </td>
                     </tr>
                   ) : (
-                    filteredSales.map((sale) => {
+                    sales.map((sale) => {
                       const status = translateStatus(sale.status);
                       const isSelected = selectedSale?.id === sale.id;
                       return (
@@ -213,6 +398,7 @@ export default function Historico() {
                             {new Date(sale.createdAt).toLocaleString('pt-BR')}
                           </td>
                           <td className="px-6 py-4 text-right font-bold text-amber-550">R$ {sale.total.toFixed(2)}</td>
+                          {userRole === 'ADMIN' && <td className="px-6 py-4 text-right font-bold text-emerald-500">R$ {(sale.total - (sale.totalCost || 0)).toFixed(2)}</td>}
                           <td className="px-6 py-4 text-center text-slate-300 font-semibold">{translatePayment(sale.paymentMethod)}</td>
                           <td className="px-6 py-4 text-center">
                             <span className={`px-2.5 py-0.5 border rounded-full text-[10px] font-bold ${status.class}`}>
@@ -280,6 +466,12 @@ export default function Historico() {
                     <span>Total do Pedido:</span>
                     <span>R$ {selectedSale.total.toFixed(2)}</span>
                   </div>
+                  {userRole === 'ADMIN' && (
+                    <div className="flex justify-between font-bold text-emerald-500 text-sm">
+                      <span>Lucro Líquido:</span>
+                      <span>R$ {(selectedSale.total - (selectedSale.totalCost || 0)).toFixed(2)}</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -322,6 +514,29 @@ export default function Historico() {
         </div>
 
       </div>
+
+      {/* Paginação */}
+      {meta.totalPages > 1 && (
+        <div className="max-w-6xl mx-auto flex justify-center items-center gap-3 mt-4 pb-8">
+          <button
+            disabled={page === 1}
+            onClick={() => loadSales(page - 1)}
+            className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Anterior
+          </button>
+          <span className="text-slate-400 font-semibold px-4 text-sm">
+            Página <span className="text-white">{page}</span> de <span className="text-white">{meta.totalPages}</span>
+          </span>
+          <button
+            disabled={page === meta.totalPages}
+            onClick={() => loadSales(page + 1)}
+            className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Próxima
+          </button>
+        </div>
+      )}
 
     </div>
   );

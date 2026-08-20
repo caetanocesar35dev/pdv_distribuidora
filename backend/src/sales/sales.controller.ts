@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Param, Body, UseGuards, Query } from '@nestjs/common';
 import { SalesService } from './sales.service';
 import { AuthGuard } from '../auth/auth.guard';
 import { PaymentMethod } from '@prisma/client';
@@ -14,8 +14,15 @@ export class SalesController {
   }
 
   @Get()
-  async findAll() {
-    return this.salesService.findAll();
+  async findAll(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
+    @Query('paymentMethod') paymentMethod?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    return this.salesService.findAll({ page, limit, search, paymentMethod, startDate, endDate });
   }
 
   @Get(':id')

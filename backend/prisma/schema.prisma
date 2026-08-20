@@ -29,6 +29,7 @@ model Product {
   code             String   @unique
   name             String
   price            Float
+  costPrice        Float    @default(0)
   stock            Int      @default(0)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -46,6 +47,7 @@ model ProductHistory {
   code             String
   name             String
   price            Float
+  costPrice        Float    @default(0)
   stock            Int
 
   // Campos de auditoria
@@ -60,6 +62,7 @@ model ProductHistory {
 model Sale {
   id            Int         @id @default(autoincrement())
   total         Float
+  totalCost     Float       @default(0)
   paymentMethod PaymentMethod
   status        SaleStatus  @default(COMPLETED)
   createdAt     DateTime    @default(now())
@@ -85,6 +88,7 @@ model SaleItem {
   productId Int
   quantity  Int
   price     Float
+  costPrice Float    @default(0)
   sale      Sale     @relation(fields: [saleId], references: [id])
   product   Product  @relation(fields: [productId], references: [id])
 }

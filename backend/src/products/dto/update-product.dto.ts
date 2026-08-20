@@ -12,6 +12,11 @@ export class UpdateProductDto {
 
   @IsOptional()
   @IsNumber()
+  @Min(0, { message: 'O preço de custo não pode ser negativo' })
+  costPrice?: number;
+
+  @IsOptional()
+  @IsNumber()
   @Min(0, { message: 'O estoque não pode ser negativo' })
   stock?: number;
 }

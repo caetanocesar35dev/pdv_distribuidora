@@ -9,6 +9,10 @@ export class CreateProductDto {
   @Min(0, { message: 'O preço não pode ser negativo' })
   price: number;
 
+  @IsNumber()
+  @Min(0, { message: 'O preço de custo não pode ser negativo' })
+  costPrice: number;
+
   @IsOptional()
   @IsNumber()
   @Min(0, { message: 'O estoque não pode ser negativo' })

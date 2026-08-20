@@ -43,6 +43,7 @@ export default function Estoque() {
       await api.post('/products', {
         name: data.name,
         price: parseFloat(data.price),
+        costPrice: parseFloat(data.costPrice || 0),
         stock: parseInt(data.stock) || 0
       });
       setSuccess(`Produto "${data.name}" criado com sucesso!`);
@@ -59,7 +60,8 @@ export default function Estoque() {
     try {
       await api.patch(`/products/${selectedProduct.id}`, {
         name: data.name,
-        price: parseFloat(data.price)
+        price: parseFloat(data.price),
+        costPrice: parseFloat(data.costPrice || 0)
       });
       setSuccess(`Produto "${data.name}" atualizado com sucesso!`);
       loadProducts();
@@ -105,6 +107,7 @@ export default function Estoque() {
     if (type === 'edit' && product) {
       setValue('name', product.name);
       setValue('price', product.price);
+      setValue('costPrice', product.costPrice || 0);
     }
   };
 
@@ -191,6 +194,7 @@ export default function Estoque() {
                   <th className="px-6 py-4">Código</th>
                   <th className="px-6 py-4">Produto</th>
                   <th className="px-6 py-4 text-right">Preço Venda</th>
+                  <th className="px-6 py-4 text-right">Preço Custo</th>
                   <th className="px-6 py-4 text-center">Quantidade</th>
                   <th className="px-6 py-4 text-center">Ações</th>
                 </tr>
@@ -198,7 +202,7 @@ export default function Estoque() {
               <tbody className="divide-y divide-slate-800/60 text-sm">
                 {filteredProducts.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="px-6 py-12 text-center text-slate-500">
+                    <td colSpan="6" className="px-6 py-12 text-center text-slate-500">
                       Nenhum produto cadastrado ou correspondente à pesquisa.
                     </td>
                   </tr>
@@ -211,6 +215,7 @@ export default function Estoque() {
                         <td className="px-6 py-4 font-mono text-xs text-slate-450">{product.code}</td>
                         <td className="px-6 py-4 font-semibold text-white">{product.name}</td>
                         <td className="px-6 py-4 text-right font-bold text-amber-500">R$ {product.price.toFixed(2)}</td>
+                        <td className="px-6 py-4 text-right font-bold text-slate-400">R$ {(product.costPrice || 0).toFixed(2)}</td>
                         <td className="px-6 py-4 text-center">
                           <span className={`px-3 py-1 rounded-full text-xs font-bold ${
                             isOut 
@@ -280,7 +285,7 @@ export default function Estoque() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">Preço de Venda (R$)</label>
+                  <label className="block text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">Preço Venda (R$)</label>
                   <input
                     type="number"
                     step="0.01"
@@ -289,6 +294,18 @@ export default function Estoque() {
                     className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-650 focus:outline-none focus:border-amber-500 transition-colors text-sm"
                   />
                   {errors.price && <span className="text-red-400 text-xs mt-1 block">{errors.price.message}</span>}
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">Preço Custo (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    {...register('costPrice', { required: 'Custo é obrigatório', min: { value: 0, message: 'Custo não pode ser negativo' } })}
+                    placeholder="2.00"
+                    className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-650 focus:outline-none focus:border-amber-500 transition-colors text-sm"
+                  />
+                  {errors.costPrice && <span className="text-red-400 text-xs mt-1 block">{errors.costPrice.message}</span>}
                 </div>
 
                 <div>
@@ -333,15 +350,28 @@ export default function Estoque() {
                 {errors.name && <span className="text-red-400 text-xs mt-1 block">{errors.name.message}</span>}
               </div>
 
-              <div>
-                <label className="block text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">Preço de Venda (R$)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  {...register('price', { required: 'Preço é obrigatório', min: { value: 0.01, message: 'Preço deve ser maior que zero' } })}
-                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500 transition-colors text-sm"
-                />
-                {errors.price && <span className="text-red-400 text-xs mt-1 block">{errors.price.message}</span>}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">Preço Venda (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    {...register('price', { required: 'Preço é obrigatório', min: { value: 0.01, message: 'Preço deve ser maior que zero' } })}
+                    className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500 transition-colors text-sm"
+                  />
+                  {errors.price && <span className="text-red-400 text-xs mt-1 block">{errors.price.message}</span>}
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">Preço Custo (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    {...register('costPrice', { required: 'Custo é obrigatório', min: { value: 0, message: 'Custo não pode ser negativo' } })}
+                    className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500 transition-colors text-sm"
+                  />
+                  {errors.costPrice && <span className="text-red-400 text-xs mt-1 block">{errors.costPrice.message}</span>}
+                </div>
               </div>
 
               <button

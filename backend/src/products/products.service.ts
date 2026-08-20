@@ -57,6 +57,7 @@ export class ProductsService {
         code,
         name: data.name,
         price: Number(data.price),
+        costPrice: Number(data.costPrice),
         stock: data.stock !== undefined ? Number(data.stock) : 0,
         modifierId: data.modifierId,
         modifiedEndpoint: data.modifiedEndpoint,
@@ -72,6 +73,7 @@ export class ProductsService {
       data: {
         ...data,
         price: data.price !== undefined ? Number(data.price) : undefined,
+        costPrice: data.costPrice !== undefined ? Number(data.costPrice) : undefined,
         stock: data.stock !== undefined ? Number(data.stock) : undefined,
         modifierId: data.modifierId,
         modifiedEndpoint: data.modifiedEndpoint,

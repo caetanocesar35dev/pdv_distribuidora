@@ -22,7 +22,8 @@ export class SalesService {
       }
 
       let total = 0;
-      const saleItemsData: { productId: number; quantity: number; price: number }[] = [];
+      let totalCost = 0;
+      const saleItemsData: { productId: number; quantity: number; price: number; costPrice: number }[] = [];
       const stockUpdates: { productId: number; newStock: number }[] = [];
 
       // 2. Validar estoque e calcular o total com base no preço do cadastro (preço fixo)
@@ -46,12 +47,15 @@ export class SalesService {
         }
 
         const itemTotal = product.price * item.quantity;
+        const itemTotalCost = product.costPrice * item.quantity;
         total += itemTotal;
+        totalCost += itemTotalCost;
 
         saleItemsData.push({
           productId: product.id,
           quantity: item.quantity,
           price: product.price,
+          costPrice: product.costPrice,
         });
 
         stockUpdates.push({
@@ -72,6 +76,7 @@ export class SalesService {
       const sale = await tx.sale.create({
         data: {
           total,
+          totalCost,
           paymentMethod: body.paymentMethod,
           status: SaleStatus.COMPLETED,
           items: {
@@ -101,17 +106,79 @@ export class SalesService {
     });
   }
 
-  async findAll() {
-    return this.prisma.sale.findMany({
-      include: {
-        items: {
-          include: {
-            product: true,
+  async findAll(query: {
+    page?: string;
+    limit?: string;
+    search?: string;
+    paymentMethod?: string;
+    startDate?: string;
+    endDate?: string;
+  } = {}) {
+    const page = Number(query.page) || 1;
+    const limit = Number(query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+
+    if (query.search && !isNaN(Number(query.search))) {
+      where.id = Number(query.search);
+    }
+
+    if (query.paymentMethod && query.paymentMethod !== 'ALL') {
+      where.paymentMethod = query.paymentMethod as PaymentMethod;
+    }
+
+    if (query.startDate || query.endDate) {
+      where.createdAt = {};
+      if (query.startDate) {
+        where.createdAt.gte = new Date(query.startDate);
+      }
+      if (query.endDate) {
+        where.createdAt.lte = new Date(query.endDate);
+      }
+    }
+
+    const [data, totalCount] = await Promise.all([
+      this.prisma.sale.findMany({
+        where,
+        skip,
+        take: limit,
+        include: {
+          items: {
+            include: {
+              product: true,
+            },
           },
         },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.sale.count({ where }),
+    ]);
+
+    // Calcular lucro e receita totais
+    const aggregations = await this.prisma.sale.aggregate({
+      where: { ...where, status: { not: SaleStatus.CANCELED } },
+      _sum: {
+        total: true,
+        totalCost: true,
       },
-      orderBy: { createdAt: 'desc' },
     });
+
+    const totalRevenue = aggregations._sum.total || 0;
+    const totalCost = aggregations._sum.totalCost || 0;
+    const totalProfit = totalRevenue - totalCost;
+
+    return {
+      data,
+      meta: {
+        totalItems: totalCount,
+        totalRevenue,
+        totalProfit,
+        page,
+        limit,
+        totalPages: Math.ceil(totalCount / limit),
+      },
+    };
   }
 
   async findOne(id: number) {
