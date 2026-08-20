@@ -20,6 +20,10 @@ export class AuthService {
       throw new UnauthorizedException('E-mail ou senha incorretos');
     }
 
+    if (!user.isActive) {
+      throw new UnauthorizedException('Este usuário está desativado. Contate o administrador.');
+    }
+
     const isMatch = await bcrypt.compare(pass, user.password);
     if (!isMatch) {
       throw new UnauthorizedException('E-mail ou senha incorretos');
