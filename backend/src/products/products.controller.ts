@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards, UseInterceptors } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { AuthGuard } from '../auth/auth.guard';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { AuditInterceptor } from '../interceptors/audit.interceptor';
 
 @Controller('products')
 export class ProductsController {
@@ -24,24 +25,27 @@ export class ProductsController {
   }
 
   @UseGuards(AuthGuard)
+  @UseInterceptors(AuditInterceptor)
   @Post()
-  async create(@Body() body: CreateProductDto) {
+  async create(@Body() body: CreateProductDto & { modifierId?: number, modifiedEndpoint?: string }) {
     return this.productsService.create(body);
   }
 
   @UseGuards(AuthGuard)
+  @UseInterceptors(AuditInterceptor)
   @Patch(':id')
   async update(
     @Param('id') id: string,
-    @Body() body: UpdateProductDto
+    @Body() body: UpdateProductDto & { modifierId?: number, modifiedEndpoint?: string }
   ) {
     return this.productsService.update(Number(id), body);
   }
 
   @UseGuards(AuthGuard)
+  @UseInterceptors(AuditInterceptor)
   @Post(':id/entry')
-  async addStock(@Param('id') id: string, @Body() body: { quantity: number }) {
-    return this.productsService.addStock(Number(id), body.quantity);
+  async addStock(@Param('id') id: string, @Body() body: { quantity: number, modifierId?: number, modifiedEndpoint?: string }) {
+    return this.productsService.addStock(Number(id), body.quantity, body.modifierId, body.modifiedEndpoint);
   }
 
   @UseGuards(AuthGuard)

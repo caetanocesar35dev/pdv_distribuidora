@@ -40,7 +40,7 @@ export class ProductsService {
     return product;
   }
 
-  async create(data: CreateProductDto) {
+  async create(data: CreateProductDto & { modifierId?: number, modifiedEndpoint?: string }) {
     let code = '';
     let isUnique = false;
 
@@ -58,11 +58,13 @@ export class ProductsService {
         name: data.name,
         price: Number(data.price),
         stock: data.stock !== undefined ? Number(data.stock) : 0,
+        modifierId: data.modifierId,
+        modifiedEndpoint: data.modifiedEndpoint,
       },
     });
   }
 
-  async update(id: number, data: UpdateProductDto) {
+  async update(id: number, data: UpdateProductDto & { modifierId?: number, modifiedEndpoint?: string }) {
     await this.findOne(id);
 
     return this.prisma.product.update({
@@ -71,11 +73,13 @@ export class ProductsService {
         ...data,
         price: data.price !== undefined ? Number(data.price) : undefined,
         stock: data.stock !== undefined ? Number(data.stock) : undefined,
+        modifierId: data.modifierId,
+        modifiedEndpoint: data.modifiedEndpoint,
       },
     });
   }
 
-  async addStock(id: number, quantity: number) {
+  async addStock(id: number, quantity: number, modifierId?: number, modifiedEndpoint?: string) {
     if (quantity <= 0) {
       throw new BadRequestException('A quantidade de entrada deve ser maior que zero');
     }
@@ -85,6 +89,8 @@ export class ProductsService {
       where: { id },
       data: {
         stock: product.stock + Math.floor(quantity),
+        modifierId,
+        modifiedEndpoint,
       },
     });
   }

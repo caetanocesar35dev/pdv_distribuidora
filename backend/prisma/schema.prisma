@@ -6,6 +6,7 @@ datasource db {
   provider = "postgresql"
 }
 
+/// Representa os usuários do sistema (ex: administradores e operadores de caixa).
 model User {
   id        Int      @id @default(autoincrement())
   email     String   @unique
@@ -14,6 +15,7 @@ model User {
   role      Role     @default(USER)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  isActive  Boolean  @default(true)
 }
 
 enum Role {
@@ -21,17 +23,40 @@ enum Role {
   ADMIN
 }
 
+/// Representa os produtos disponíveis para venda na distribuidora, com seu respectivo controle de estoque.
 model Product {
-  id          Int      @id @default(autoincrement())
-  code        String   @unique
-  name        String
-  price       Float
-  stock       Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  saleItems   SaleItem[]
+  id               Int      @id @default(autoincrement())
+  code             String   @unique
+  name             String
+  price            Float
+  stock            Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  saleItems        SaleItem[]
+
+  // Campos de auditoria
+  modifierId       Int?
+  modifiedEndpoint String?
 }
 
+/// Tabela de auditoria gerada via trigger que armazena o histórico de todas as alterações feitas nos produtos.
+model ProductHistory {
+  id               Int      @id @default(autoincrement())
+  productId        Int
+  code             String
+  name             String
+  price            Float
+  stock            Int
+
+  // Campos de auditoria
+  modifierId       Int?
+  modifiedEndpoint String?
+  historyStart     DateTime
+  historyEnd       DateTime?
+}
+
+
+/// Representa uma transação de venda realizada no PDV, consolidando o valor total e a forma de pagamento.
 model Sale {
   id            Int         @id @default(autoincrement())
   total         Float
@@ -53,6 +78,7 @@ enum SaleStatus {
   CANCELED
 }
 
+/// Representa a relação de produtos (e suas quantidades) vendidos dentro de uma Venda (Sale) específica.
 model SaleItem {
   id        Int      @id @default(autoincrement())
   saleId    Int
@@ -63,6 +89,7 @@ model SaleItem {
   product   Product  @relation(fields: [productId], references: [id])
 }
 
+/// Representa as sessões do caixa (abertura e fechamento), mantendo o controle dos saldos ao longo do dia.
 model CashRegister {
   id          Int      @id @default(autoincrement())
   openedAt    DateTime @default(now())
@@ -78,6 +105,7 @@ enum CashStatus {
   CLOSED
 }
 
+/// Representa as movimentações financeiras individuais (entradas, saídas ou vendas) vinculadas a um caixa aberto.
 model CashMovement {
   id             Int          @id @default(autoincrement())
   cashRegisterId Int

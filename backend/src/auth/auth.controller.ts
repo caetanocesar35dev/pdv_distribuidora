@@ -1,6 +1,7 @@
-import { Controller, Post, Body, Get, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Body, Get, UseGuards, Request, Patch, Param } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthGuard } from './auth.guard';
+import { CreateUserDto } from './dto/create-user.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -15,5 +16,23 @@ export class AuthController {
   @Get('me')
   async getProfile(@Request() req: any) {
     return this.authService.getProfile(req.user.sub);
+  }
+
+  @UseGuards(AuthGuard)
+  @Post('register')
+  async register(@Body() body: CreateUserDto, @Request() req: any) {
+    return this.authService.register(body, req.user.sub);
+  }
+
+  @UseGuards(AuthGuard)
+  @Get('users')
+  async getAllUsers(@Request() req: any) {
+    return this.authService.getAllUsers(req.user.sub);
+  }
+
+  @UseGuards(AuthGuard)
+  @Patch('users/:id/toggle-active')
+  async toggleUserActive(@Param('id') id: string, @Request() req: any) {
+    return this.authService.toggleUserActive(Number(id), req.user.sub);
   }
 }

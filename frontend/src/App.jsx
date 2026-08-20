@@ -1,7 +1,7 @@
 import { Routes, Route, Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { 
-  Beer, ShoppingCart, DollarSign, Package, History, LogOut, User
+  Beer, ShoppingCart, DollarSign, Package, History, LogOut, User, Users
 } from 'lucide-react';
 
 import Login from './pages/Login';
@@ -9,6 +9,7 @@ import PDV from './pages/PDV';
 import Caixa from './pages/Caixa';
 import Estoque from './pages/Estoque';
 import Historico from './pages/Historico';
+import Usuarios from './pages/Usuarios';
 
 // Componente para proteção de rotas
 function PrivateRoute({ children }) {
@@ -24,12 +25,14 @@ function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [userName, setUserName] = useState('');
+  const [userRole, setUserRole] = useState('USER');
 
   useEffect(() => {
     const userStr = localStorage.getItem('user');
     if (userStr) {
       const user = JSON.parse(userStr);
       setUserName(user.name || 'Operador');
+      setUserRole(user.role || 'USER');
     }
   }, []);
 
@@ -43,7 +46,8 @@ function Layout() {
     { path: '/pdv', label: 'Registrar Venda', icon: ShoppingCart },
     { path: '/caixa', label: 'Controle de Caixa', icon: DollarSign },
     { path: '/estoque', label: 'Estoque / Produtos', icon: Package },
-    { path: '/historico', label: 'Histórico de Vendas', icon: History }
+    { path: '/historico', label: 'Histórico de Vendas', icon: History },
+    ...(userRole === 'ADMIN' ? [{ path: '/usuarios', label: 'Usuários', icon: Users }] : [])
   ];
 
   return (
@@ -94,7 +98,9 @@ function Layout() {
             </div>
             <div className="min-w-0">
               <p className="text-xs font-bold text-white truncate">{userName}</p>
-              <p className="text-[9px] text-slate-500 uppercase tracking-wider font-semibold">Operador</p>
+              <p className="text-[9px] text-slate-500 uppercase tracking-wider font-semibold">
+                {userRole === 'ADMIN' ? 'Administrador' : 'Operador'}
+              </p>
             </div>
           </div>
 
@@ -122,6 +128,7 @@ function Layout() {
             <Route path="/caixa" element={<Caixa />} />
             <Route path="/estoque" element={<Estoque />} />
             <Route path="/historico" element={<Historico />} />
+            <Route path="/usuarios" element={userRole === 'ADMIN' ? <Usuarios /> : <Navigate to="/pdv" replace />} />
             <Route path="*" element={<Navigate to="/pdv" replace />} />
           </Routes>
         </div>
