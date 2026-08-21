@@ -48,7 +48,7 @@ function Layout() {
     { path: '/caixa', label: 'Controle de Caixa', icon: DollarSign },
     { path: '/estoque', label: 'Estoque / Produtos', icon: Package },
     { path: '/historico', label: 'Histórico de Vendas', icon: History },
-    { path: '/clientes', label: 'Clientes (Fiado)', icon: Users },
+    { path: '/clientes', label: 'Clientes', icon: Users },
     ...(userRole === 'ADMIN' ? [{ path: '/usuarios', label: 'Usuários', icon: User }] : [])
   ];
 

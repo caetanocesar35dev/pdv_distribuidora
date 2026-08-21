@@ -27,7 +27,7 @@ export class CustomersService {
       include: {
         payments: { orderBy: { createdAt: 'desc' } },
         sales: { 
-          where: { paymentMethod: 'CREDIT_STORE' },
+          include: { items: { include: { product: true } } },
           orderBy: { createdAt: 'desc' } 
         },
       }
