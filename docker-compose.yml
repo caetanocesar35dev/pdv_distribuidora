@@ -5,9 +5,9 @@ services:
     image: postgres:17
     container_name: distribuidora_db
     env_file:
-      - .env
+      - ./backend/.env
     ports:
-      - "5435:5432"
+      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: always
@@ -20,7 +20,9 @@ services:
     ports:
       - "3000:3000"
     env_file:
-      - .env
+      - ./backend/.env
+    environment:
+      - DATABASE_URL=postgresql://u_postgresql_distribuidora:99546350julio@postgres:5432/db_distribuidora?schema=public
     depends_on:
       - postgres
     restart: always
