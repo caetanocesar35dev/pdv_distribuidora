@@ -10,6 +10,7 @@ import Caixa from './pages/Caixa';
 import Estoque from './pages/Estoque';
 import Historico from './pages/Historico';
 import Usuarios from './pages/Usuarios';
+import Clientes from './pages/Clientes';
 
 // Componente para proteção de rotas
 function PrivateRoute({ children }) {
@@ -47,7 +48,8 @@ function Layout() {
     { path: '/caixa', label: 'Controle de Caixa', icon: DollarSign },
     { path: '/estoque', label: 'Estoque / Produtos', icon: Package },
     { path: '/historico', label: 'Histórico de Vendas', icon: History },
-    ...(userRole === 'ADMIN' ? [{ path: '/usuarios', label: 'Usuários', icon: Users }] : [])
+    { path: '/clientes', label: 'Clientes (Fiado)', icon: Users },
+    ...(userRole === 'ADMIN' ? [{ path: '/usuarios', label: 'Usuários', icon: User }] : [])
   ];
 
   return (
@@ -128,6 +130,7 @@ function Layout() {
             <Route path="/caixa" element={<Caixa />} />
             <Route path="/estoque" element={<Estoque />} />
             <Route path="/historico" element={<Historico />} />
+            <Route path="/clientes" element={<Clientes />} />
             <Route path="/usuarios" element={userRole === 'ADMIN' ? <Usuarios /> : <Navigate to="/pdv" replace />} />
             <Route path="*" element={<Navigate to="/pdv" replace />} />
           </Routes>

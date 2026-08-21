@@ -25,15 +25,15 @@ enum Role {
 
 /// Representa os produtos disponíveis para venda na distribuidora, com seu respectivo controle de estoque.
 model Product {
-  id               Int      @id @default(autoincrement())
-  code             String   @unique
-  name             String
-  price            Float
-  costPrice        Float    @default(0)
-  stock            Int      @default(0)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  saleItems        SaleItem[]
+  id        Int        @id @default(autoincrement())
+  code      String     @unique
+  name      String
+  price     Float
+  costPrice Float      @default(0)
+  stock     Int        @default(0)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  saleItems SaleItem[]
 
   // Campos de auditoria
   modifierId       Int?
@@ -42,13 +42,13 @@ model Product {
 
 /// Tabela de auditoria gerada via trigger que armazena o histórico de todas as alterações feitas nos produtos.
 model ProductHistory {
-  id               Int      @id @default(autoincrement())
-  productId        Int
-  code             String
-  name             String
-  price            Float
-  costPrice        Float    @default(0)
-  stock            Int
+  id        Int    @id @default(autoincrement())
+  productId Int
+  code      String
+  name      String
+  price     Float
+  costPrice Float  @default(0)
+  stock     Int
 
   // Campos de auditoria
   modifierId       Int?
@@ -57,15 +57,18 @@ model ProductHistory {
   historyEnd       DateTime?
 }
 
-
 /// Representa uma transação de venda realizada no PDV, consolidando o valor total e a forma de pagamento.
 model Sale {
-  id            Int         @id @default(autoincrement())
+  id            Int           @id @default(autoincrement())
   total         Float
-  totalCost     Float       @default(0)
+  totalCost     Float         @default(0)
   paymentMethod PaymentMethod
-  status        SaleStatus  @default(COMPLETED)
-  createdAt     DateTime    @default(now())
+  status        SaleStatus    @default(COMPLETED)
+  createdAt     DateTime      @default(now())
+  
+  customerId    Int?
+  customer      Customer?     @relation(fields: [customerId], references: [id])
+  
   items         SaleItem[]
 }
 
@@ -74,6 +77,7 @@ enum PaymentMethod {
   PIX
   DEBIT
   CREDIT
+  CREDIT_STORE
 }
 
 enum SaleStatus {
@@ -83,25 +87,25 @@ enum SaleStatus {
 
 /// Representa a relação de produtos (e suas quantidades) vendidos dentro de uma Venda (Sale) específica.
 model SaleItem {
-  id        Int      @id @default(autoincrement())
+  id        Int     @id @default(autoincrement())
   saleId    Int
   productId Int
   quantity  Int
   price     Float
-  costPrice Float    @default(0)
-  sale      Sale     @relation(fields: [saleId], references: [id])
-  product   Product  @relation(fields: [productId], references: [id])
+  costPrice Float   @default(0)
+  sale      Sale    @relation(fields: [saleId], references: [id])
+  product   Product @relation(fields: [productId], references: [id])
 }
 
 /// Representa as sessões do caixa (abertura e fechamento), mantendo o controle dos saldos ao longo do dia.
 model CashRegister {
-  id          Int      @id @default(autoincrement())
-  openedAt    DateTime @default(now())
-  closedAt    DateTime?
-  initialBalance Float @default(0)
+  id             Int            @id @default(autoincrement())
+  openedAt       DateTime       @default(now())
+  closedAt       DateTime?
+  initialBalance Float          @default(0)
   finalBalance   Float?
-  status      CashStatus @default(OPEN)
-  movements   CashMovement[]
+  status         CashStatus     @default(OPEN)
+  movements      CashMovement[]
 }
 
 enum CashStatus {
@@ -124,4 +128,28 @@ enum MovementType {
   IN
   OUT
   SALE
+}
+
+/// Representa os clientes do estabelecimento (para controle de fiado/contas a receber)
+model Customer {
+  id        Int      @id @default(autoincrement())
+  name      String
+  phone     String?
+  balance   Float    @default(0) // Saldo devedor
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  sales     Sale[]
+  payments  CustomerPayment[]
+}
+
+/// Histórico de pagamentos de dívidas (fiado) feitos pelos clientes
+model CustomerPayment {
+  id             Int          @id @default(autoincrement())
+  customerId     Int
+  amount         Float
+  paymentMethod  PaymentMethod
+  createdAt      DateTime     @default(now())
+  
+  customer       Customer     @relation(fields: [customerId], references: [id])
 }

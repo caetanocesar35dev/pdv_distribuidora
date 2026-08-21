@@ -6,9 +6,13 @@ import { PaymentMethod, SaleStatus, CashStatus, MovementType } from '@prisma/cli
 export class SalesService {
   constructor(private prisma: PrismaService) {}
 
-  async create(body: { paymentMethod: PaymentMethod; items: { productId: number; quantity: number }[] }) {
+  async create(body: { paymentMethod: PaymentMethod; customerId?: number; items: { productId: number; quantity: number }[] }) {
     if (!body.items || body.items.length === 0) {
       throw new BadRequestException('A venda deve conter pelo menos um item.');
+    }
+
+    if (body.paymentMethod === 'CREDIT_STORE' && !body.customerId) {
+      throw new BadRequestException('Para vendas a prazo (Fiado), é obrigatório informar o cliente.');
     }
 
     // Executar a venda em uma transação de banco de dados
@@ -78,6 +82,7 @@ export class SalesService {
           total,
           totalCost,
           paymentMethod: body.paymentMethod,
+          customerId: body.customerId,
           status: SaleStatus.COMPLETED,
           items: {
             create: saleItemsData,
@@ -92,15 +97,24 @@ export class SalesService {
         },
       });
 
-      // 5. Registrar movimentação de entrada no caixa
-      await tx.cashMovement.create({
-        data: {
-          cashRegisterId: activeCash.id,
-          type: MovementType.SALE,
-          amount: total,
-          description: `Venda registrada #${sale.id}`,
-        },
-      });
+      // 5. Atualiza o caixa ou o saldo do cliente
+      if (body.paymentMethod === 'CREDIT_STORE' && body.customerId) {
+        // Venda a prazo: aumenta a dívida do cliente e NÃO mexe no caixa
+        await tx.customer.update({
+          where: { id: body.customerId },
+          data: { balance: { increment: total } },
+        });
+      } else {
+        // Venda à vista: registra movimentação de entrada no caixa
+        await tx.cashMovement.create({
+          data: {
+            cashRegisterId: activeCash.id,
+            type: MovementType.SALE,
+            amount: total,
+            description: `Venda registrada #${sale.id}`,
+          },
+        });
+      }
 
       return sale;
     });
@@ -257,15 +271,22 @@ export class SalesService {
         },
       });
 
-      // 5. Registrar movimentação de saída (estorno) no caixa
-      await tx.cashMovement.create({
-        data: {
-          cashRegisterId: activeCash.id,
-          type: MovementType.OUT,
-          amount: sale.total,
-          description: `Cancelamento da Venda #${sale.id}`,
-        },
-      });
+      // 5. Estornar saldo ou registrar movimentação de saída no caixa
+      if (sale.paymentMethod === 'CREDIT_STORE' && sale.customerId) {
+        await tx.customer.update({
+          where: { id: sale.customerId },
+          data: { balance: { decrement: sale.total } },
+        });
+      } else {
+        await tx.cashMovement.create({
+          data: {
+            cashRegisterId: activeCash.id,
+            type: MovementType.OUT,
+            amount: sale.total,
+            description: `Cancelamento da Venda #${sale.id}`,
+          },
+        });
+      }
 
       return updatedSale;
     });
