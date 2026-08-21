@@ -6,7 +6,7 @@ import { PaymentMethod, SaleStatus, CashStatus, MovementType } from '@prisma/cli
 export class SalesService {
   constructor(private prisma: PrismaService) {}
 
-  async create(body: { paymentMethod: PaymentMethod; customerId?: number; items: { productId: number; quantity: number }[] }, userId?: number) {
+  async create(body: { paymentMethod: PaymentMethod; customerId?: number; discount?: number; items: { productId: number; quantity: number }[] }, userId?: number) {
     if (!body.items || body.items.length === 0) {
       throw new BadRequestException('A venda deve conter pelo menos um item.');
     }
@@ -76,11 +76,20 @@ export class SalesService {
         });
       }
 
-      // 4. Criar a venda com seus itens
+      // 4. Aplicar Desconto
+      let discount = body.discount || 0;
+      if (discount < 0) discount = 0;
+      if (discount > total) {
+        throw new BadRequestException('O desconto não pode ser maior que o valor total da venda.');
+      }
+      total = total - discount;
+
+      // 5. Criar a venda com seus itens
       const sale = await tx.sale.create({
         data: {
           total,
           totalCost,
+          discount,
           paymentMethod: body.paymentMethod,
           customerId: body.customerId,
           userId,

@@ -63,6 +63,7 @@ model Sale {
   id            Int           @id @default(autoincrement())
   total         Float
   totalCost     Float         @default(0)
+  discount      Float         @default(0)
   paymentMethod PaymentMethod
   status        SaleStatus    @default(COMPLETED)
   createdAt     DateTime      @default(now())
