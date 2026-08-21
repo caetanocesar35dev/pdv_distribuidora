@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Body, UseGuards, Query } from '@nestjs/common';
+import { Controller, Get, Post, Param, Body, UseGuards, Query, Request } from '@nestjs/common';
 import { SalesService } from './sales.service';
 import { AuthGuard } from '../auth/auth.guard';
 import { PaymentMethod } from '@prisma/client';
@@ -9,8 +9,8 @@ export class SalesController {
   constructor(private salesService: SalesService) {}
 
   @Post()
-  async create(@Body() body: { paymentMethod: PaymentMethod; customerId?: number; items: { productId: number; quantity: number }[] }) {
-    return this.salesService.create(body);
+  async create(@Body() body: { paymentMethod: PaymentMethod; customerId?: number; items: { productId: number; quantity: number }[] }, @Request() req: any) {
+    return this.salesService.create(body, req.user.sub);
   }
 
   @Get()

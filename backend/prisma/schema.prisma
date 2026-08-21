@@ -16,6 +16,7 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   isActive  Boolean  @default(true)
+  sales     Sale[]
 }
 
 enum Role {
@@ -65,6 +66,9 @@ model Sale {
   paymentMethod PaymentMethod
   status        SaleStatus    @default(COMPLETED)
   createdAt     DateTime      @default(now())
+  
+  userId        Int?
+  user          User?         @relation(fields: [userId], references: [id])
   
   customerId    Int?
   customer      Customer?     @relation(fields: [customerId], references: [id])

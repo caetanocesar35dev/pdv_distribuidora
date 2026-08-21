@@ -6,7 +6,7 @@ import { PaymentMethod, SaleStatus, CashStatus, MovementType } from '@prisma/cli
 export class SalesService {
   constructor(private prisma: PrismaService) {}
 
-  async create(body: { paymentMethod: PaymentMethod; customerId?: number; items: { productId: number; quantity: number }[] }) {
+  async create(body: { paymentMethod: PaymentMethod; customerId?: number; items: { productId: number; quantity: number }[] }, userId?: number) {
     if (!body.items || body.items.length === 0) {
       throw new BadRequestException('A venda deve conter pelo menos um item.');
     }
@@ -83,6 +83,7 @@ export class SalesService {
           totalCost,
           paymentMethod: body.paymentMethod,
           customerId: body.customerId,
+          userId,
           status: SaleStatus.COMPLETED,
           items: {
             create: saleItemsData,
@@ -158,6 +159,7 @@ export class SalesService {
         skip,
         take: limit,
         include: {
+          user: { select: { name: true } },
           items: {
             include: {
               product: true,
@@ -199,6 +201,7 @@ export class SalesService {
     const sale = await this.prisma.sale.findUnique({
       where: { id },
       include: {
+        user: { select: { name: true } },
         items: {
           include: {
             product: true,
