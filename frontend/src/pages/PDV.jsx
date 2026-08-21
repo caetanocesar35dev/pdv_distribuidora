@@ -20,6 +20,7 @@ export default function PDV() {
   const [isFinishing, setIsFinishing] = useState(false);
   const [saleResult, setSaleResult] = useState(null);
   const [error, setError] = useState('');
+  const [discount, setDiscount] = useState('');
   
   const barcodeInputRef = useRef(null);
 
@@ -139,6 +140,8 @@ export default function PDV() {
   };
 
   const cartTotal = cart.reduce((acc, item) => acc + (item.product.price * item.quantity), 0);
+  const discountValue = Number(discount) || 0;
+  const finalTotal = cartTotal - discountValue;
 
   const handleFinishSale = async () => {
     if (cart.length === 0) return;
@@ -160,12 +163,14 @@ export default function PDV() {
       const res = await api.post('/sales', {
         paymentMethod,
         customerId: selectedCustomer ? Number(selectedCustomer) : undefined,
+        discount: discountValue > 0 ? discountValue : undefined,
         items
       });
 
       setSaleResult(res);
       setCart([]);
       setSelectedCustomer('');
+      setDiscount('');
       loadProducts(); // Recarregar produtos para atualizar estoque em tela
     } catch (err) {
       setError(err.message || 'Erro ao finalizar venda');
@@ -418,8 +423,18 @@ export default function PDV() {
           <div className="bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between shrink-0 shadow-lg">
             <div>
               <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider">Valor da Compra</p>
-              <h2 className="text-4xl font-extrabold text-white mt-2 tracking-tight">
-                R$ {cartTotal.toFixed(2)}
+              <div className="flex justify-between items-end mt-2">
+                <span className="text-slate-500 text-sm">Subtotal:</span>
+                <span className="text-slate-300">R$ {cartTotal.toFixed(2)}</span>
+              </div>
+              {discountValue > 0 && (
+                <div className="flex justify-between items-end mt-1 text-emerald-500">
+                  <span className="text-xs">Desconto:</span>
+                  <span className="text-sm">- R$ {discountValue.toFixed(2)}</span>
+                </div>
+              )}
+              <h2 className="text-4xl font-extrabold text-white mt-2 tracking-tight border-t border-slate-800 pt-2">
+                R$ {finalTotal.toFixed(2)}
               </h2>
             </div>
             <div className="h-px bg-slate-800 my-4"></div>
@@ -482,6 +497,21 @@ export default function PDV() {
                   ))}
                 </select>
               </div>
+
+              <div className="mt-4 pt-4 border-t border-slate-800/80">
+                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">
+                  Desconto (R$)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={discount}
+                  onChange={(e) => setDiscount(e.target.value)}
+                  placeholder="0.00"
+                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500 transition-colors text-sm"
+                />
+              </div>
             </div>
 
             <div className="mt-8">
@@ -539,6 +569,12 @@ export default function PDV() {
                     </div>
                   ))}
                 </div>
+                {saleResult.discount > 0 && (
+                  <div className="flex justify-between text-emerald-400 text-xs pt-1 border-t border-slate-800/60">
+                    <span>Desconto:</span>
+                    <span>- R$ {saleResult.discount.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="border-t border-slate-800 pt-2 flex justify-between font-bold text-amber-500 text-sm">
                   <span>Total:</span>
                   <span>R$ {saleResult.total.toFixed(2)}</span>

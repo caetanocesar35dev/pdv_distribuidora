@@ -159,6 +159,9 @@ export default function Historico() {
           <div className="border-b border-dashed border-black my-1"></div>
           <div>Pedido: #{selectedSale.id}</div>
           <div>Data/Hora: {new Date(selectedSale.createdAt).toLocaleString('pt-BR')}</div>
+          {selectedSale.user && (
+            <div>Operador: {selectedSale.user.name}</div>
+          )}
           <div>Status: {selectedSale.status === 'CANCELED' ? 'CANCELADO' : 'CONCLUÍDO'}</div>
           <div className="border-b border-dashed border-black my-1"></div>
           
@@ -184,6 +187,12 @@ export default function Historico() {
           </table>
 
           <div className="border-b border-dashed border-black my-1"></div>
+          {selectedSale.discount > 0 && (
+            <div className="flex justify-between text-sm">
+              <span>Desconto:</span>
+              <span>- R$ {selectedSale.discount.toFixed(2)}</span>
+            </div>
+          )}
           <div className="flex justify-between font-bold text-sm">
             <span>TOTAL:</span>
             <span>R$ {selectedSale.total.toFixed(2)}</span>
@@ -436,6 +445,11 @@ export default function Historico() {
                     <Calendar className="w-3.5 h-3.5" />
                     {new Date(selectedSale.createdAt).toLocaleString('pt-BR')}
                   </p>
+                  {selectedSale.user && userRole === 'ADMIN' && (
+                    <p className="text-slate-400 text-xs mt-1.5 font-medium border-l-2 border-amber-500 pl-2">
+                      Venda realizada por: <span className="text-white font-bold">{selectedSale.user.name}</span>
+                    </p>
+                  )}
                 </div>
                 <button 
                   onClick={() => setSelectedSale(null)}
@@ -462,7 +476,13 @@ export default function Historico() {
                       </span>
                     </div>
                   ))}
-                  <div className="pt-3 flex justify-between font-bold text-amber-500 text-sm border-t border-slate-800">
+                  {selectedSale.discount > 0 && (
+                    <div className="pt-3 pb-1 flex justify-between text-emerald-500 text-sm border-t border-slate-800">
+                      <span>Desconto Aplicado:</span>
+                      <span>- R$ {selectedSale.discount.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className={`${selectedSale.discount > 0 ? 'pt-1' : 'pt-3 border-t border-slate-800'} flex justify-between font-bold text-amber-500 text-sm`}>
                     <span>Total do Pedido:</span>
                     <span>R$ {selectedSale.total.toFixed(2)}</span>
                   </div>
