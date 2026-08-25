@@ -1,7 +1,7 @@
 import { Routes, Route, Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { 
-  Beer, ShoppingCart, DollarSign, Package, History, LogOut, User, Users
+  Beer, ShoppingCart, DollarSign, Package, History, LogOut, User, Users, BarChart3
 } from 'lucide-react';
 
 import Login from './pages/Login';
@@ -11,6 +11,7 @@ import Estoque from './pages/Estoque';
 import Historico from './pages/Historico';
 import Usuarios from './pages/Usuarios';
 import Clientes from './pages/Clientes';
+import Dashboard from './pages/Dashboard';
 
 // Componente para proteção de rotas
 function PrivateRoute({ children }) {
@@ -44,6 +45,7 @@ function Layout() {
   };
 
   const menuItems = [
+    ...(userRole === 'ADMIN' ? [{ path: '/dashboard', label: 'Painel Inicial', icon: BarChart3 }] : []),
     { path: '/pdv', label: 'Registrar Venda', icon: ShoppingCart },
     { path: '/caixa', label: 'Controle de Caixa', icon: DollarSign },
     { path: '/estoque', label: 'Estoque / Produtos', icon: Package },
@@ -126,13 +128,14 @@ function Layout() {
         {/* Renderização de Conteúdo */}
         <div className="flex-1 z-10 overflow-hidden">
           <Routes>
+            <Route path="/dashboard" element={userRole === 'ADMIN' ? <Dashboard /> : <Navigate to="/pdv" replace />} />
             <Route path="/pdv" element={<PDV />} />
             <Route path="/caixa" element={<Caixa />} />
             <Route path="/estoque" element={<Estoque />} />
             <Route path="/historico" element={<Historico />} />
             <Route path="/clientes" element={<Clientes />} />
             <Route path="/usuarios" element={userRole === 'ADMIN' ? <Usuarios /> : <Navigate to="/pdv" replace />} />
-            <Route path="*" element={<Navigate to="/pdv" replace />} />
+            <Route path="*" element={<Navigate to={userRole === 'ADMIN' ? "/dashboard" : "/pdv"} replace />} />
           </Routes>
         </div>
       </main>

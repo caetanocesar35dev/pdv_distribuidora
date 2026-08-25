@@ -7,6 +7,7 @@ import { ProductsModule } from './products/products.module';
 import { CashRegisterModule } from './cash-register/cash-register.module';
 import { SalesModule } from './sales/sales.module';
 import { CustomersModule } from './customers/customers.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { CustomersModule } from './customers/customers.module';
     CashRegisterModule,
     SalesModule,
     CustomersModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],
