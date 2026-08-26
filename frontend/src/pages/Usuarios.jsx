@@ -12,6 +12,10 @@ export default function Usuarios() {
   const [formError, setFormError] = useState('');
   const [formLoading, setFormLoading] = useState(false);
 
+  const [resetModal, setResetModal] = useState({ show: false, userId: null, userName: '' });
+  const [newPassword, setNewPassword] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+
   useEffect(() => {
     fetchUsers();
   }, []);
@@ -51,6 +55,23 @@ export default function Usuarios() {
       setFormError(err.message || 'Erro ao cadastrar usuário');
     } finally {
       setFormLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    if (!newPassword) return;
+    setFormError('');
+    setResetLoading(true);
+    try {
+      await api.post(`/auth/users/${resetModal.userId}/reset-password`, { newPassword });
+      setResetModal({ show: false, userId: null, userName: '' });
+      setNewPassword('');
+      alert('Senha redefinida com sucesso!');
+    } catch (err) {
+      setFormError(err.message || 'Erro ao redefinir senha');
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -148,6 +169,13 @@ export default function Usuarios() {
                         title={user.isActive ? 'Desativar usuário' : 'Ativar usuário'}
                       >
                         <Power className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => setResetModal({ show: true, userId: user.id, userName: user.name })}
+                        className="inline-flex items-center justify-center p-2 rounded-xl transition-colors bg-slate-800 hover:bg-amber-500/20 text-slate-400 hover:text-amber-400 ml-2"
+                        title="Redefinir Senha"
+                      >
+                        <Lock className="w-5 h-5" />
                       </button>
                     </td>
                   </tr>
@@ -273,6 +301,74 @@ export default function Usuarios() {
           </div>
         </div>
       )}
+
+      {/* Modal Nova Senha (Reset) */}
+      {resetModal.show && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-full">
+            <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <Lock className="w-6 h-6 text-amber-500" />
+                Redefinir Senha
+              </h2>
+              <button onClick={() => setResetModal({ show: false, userId: null, userName: '' })} className="text-slate-500 hover:text-white transition-colors">
+                <AlertTriangle className="w-6 h-6 opacity-0" />
+                <span className="sr-only">Fechar</span>
+                X
+              </button>
+            </div>
+            
+            <form onSubmit={handleResetPassword} className="p-6 flex flex-col gap-5 overflow-y-auto">
+              <p className="text-sm text-slate-400">
+                Digite a nova senha para o usuário <strong className="text-white">{resetModal.userName}</strong>.
+              </p>
+
+              {formError && (
+                <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg text-sm flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0" />
+                  {formError}
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-semibold text-slate-300 ml-1">Nova Senha</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Lock className="w-5 h-5 text-slate-500" />
+                  </div>
+                  <input
+                    type="password"
+                    required
+                    minLength={6}
+                    value={newPassword}
+                    onChange={e => setNewPassword(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all"
+                    placeholder="Mínimo 6 caracteres"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-4">
+                <button
+                  type="button"
+                  onClick={() => setResetModal({ show: false, userId: null, userName: '' })}
+                  className="px-5 py-2.5 rounded-xl text-slate-300 font-bold hover:bg-slate-800 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={resetLoading}
+                  className="px-6 py-2.5 rounded-xl font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 transition-colors flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg shadow-amber-500/20"
+                >
+                  {resetLoading ? 'Salvando...' : 'Salvar Senha'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

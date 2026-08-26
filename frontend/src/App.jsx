@@ -1,8 +1,9 @@
 import { Routes, Route, Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { 
-  Beer, ShoppingCart, DollarSign, Package, History, LogOut, User, Users
+  Beer, ShoppingCart, DollarSign, Package, History, LogOut, User, Users, BarChart3, Key, AlertTriangle
 } from 'lucide-react';
+import { api } from './services/api';
 
 import Login from './pages/Login';
 import PDV from './pages/PDV';
@@ -11,6 +12,7 @@ import Estoque from './pages/Estoque';
 import Historico from './pages/Historico';
 import Usuarios from './pages/Usuarios';
 import Clientes from './pages/Clientes';
+import Dashboard from './pages/Dashboard';
 
 // Componente para proteção de rotas
 function PrivateRoute({ children }) {
@@ -28,6 +30,14 @@ function Layout() {
   const [userName, setUserName] = useState('');
   const [userRole, setUserRole] = useState('USER');
 
+  // Change Password States
+  const [passwordModal, setPasswordModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordLoading, setPasswordLoading] = useState(false);
+
   useEffect(() => {
     const userStr = localStorage.getItem('user');
     if (userStr) {
@@ -43,7 +53,33 @@ function Layout() {
     navigate('/login');
   };
 
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setPasswordError('');
+    if (newPassword !== confirmPassword) {
+      return setPasswordError('A nova senha e a confirmação não conferem.');
+    }
+    if (newPassword.length < 6) {
+      return setPasswordError('A nova senha deve ter no mínimo 6 caracteres.');
+    }
+
+    setPasswordLoading(true);
+    try {
+      await api.post('/auth/change-password', { currentPassword, newPassword });
+      setPasswordModal(false);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      alert('Senha alterada com sucesso!');
+    } catch (err) {
+      setPasswordError(err.message || 'Erro ao alterar a senha.');
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
   const menuItems = [
+    ...(userRole === 'ADMIN' ? [{ path: '/dashboard', label: 'Painel Inicial', icon: BarChart3 }] : []),
     { path: '/pdv', label: 'Registrar Venda', icon: ShoppingCart },
     { path: '/caixa', label: 'Controle de Caixa', icon: DollarSign },
     { path: '/estoque', label: 'Estoque / Produtos', icon: Package },
@@ -105,14 +141,22 @@ function Layout() {
               </p>
             </div>
           </div>
-
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 py-3 bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/20 hover:border-transparent rounded-xl text-xs font-bold transition-all cursor-pointer uppercase tracking-wider"
-          >
-            <LogOut className="w-4 h-4" />
-            <span>Sair do Sistema</span>
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPasswordModal(true)}
+              className="flex-1 flex items-center justify-center gap-2 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-[10px] font-bold transition-all cursor-pointer uppercase tracking-wider"
+            >
+              <Key className="w-4 h-4" />
+              <span>Senha</span>
+            </button>
+            <button
+              onClick={handleLogout}
+              className="flex-1 flex items-center justify-center gap-2 py-3 bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/20 hover:border-transparent rounded-xl text-[10px] font-bold transition-all cursor-pointer uppercase tracking-wider"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Sair</span>
+            </button>
+          </div>
         </div>
 
       </aside>
@@ -126,15 +170,95 @@ function Layout() {
         {/* Renderização de Conteúdo */}
         <div className="flex-1 z-10 overflow-hidden">
           <Routes>
+            <Route path="/dashboard" element={userRole === 'ADMIN' ? <Dashboard /> : <Navigate to="/pdv" replace />} />
             <Route path="/pdv" element={<PDV />} />
             <Route path="/caixa" element={<Caixa />} />
             <Route path="/estoque" element={<Estoque />} />
             <Route path="/historico" element={<Historico />} />
             <Route path="/clientes" element={<Clientes />} />
             <Route path="/usuarios" element={userRole === 'ADMIN' ? <Usuarios /> : <Navigate to="/pdv" replace />} />
-            <Route path="*" element={<Navigate to="/pdv" replace />} />
+            <Route path="*" element={<Navigate to={userRole === 'ADMIN' ? "/dashboard" : "/pdv"} replace />} />
           </Routes>
         </div>
+
+        {/* Change Password Modal */}
+        {passwordModal && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md shadow-2xl overflow-hidden flex flex-col max-h-full">
+              <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Key className="w-6 h-6 text-amber-500" />
+                  Mudar Minha Senha
+                </h2>
+                <button onClick={() => setPasswordModal(false)} className="text-slate-500 hover:text-white transition-colors">
+                  <span className="text-xl font-bold">×</span>
+                </button>
+              </div>
+              
+              <form onSubmit={handleChangePassword} className="p-6 flex flex-col gap-4 overflow-y-auto">
+                {passwordError && (
+                  <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-lg text-sm flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    {passwordError}
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-slate-300 ml-1">Senha Atual</label>
+                  <input
+                    type="password"
+                    required
+                    value={currentPassword}
+                    onChange={e => setCurrentPassword(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-4 py-3 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-slate-300 ml-1">Nova Senha</label>
+                  <input
+                    type="password"
+                    required
+                    minLength={6}
+                    value={newPassword}
+                    onChange={e => setNewPassword(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-4 py-3 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-semibold text-slate-300 ml-1">Confirme a Nova Senha</label>
+                  <input
+                    type="password"
+                    required
+                    minLength={6}
+                    value={confirmPassword}
+                    onChange={e => setConfirmPassword(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-4 py-3 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 mt-4">
+                  <button
+                    type="button"
+                    onClick={() => setPasswordModal(false)}
+                    className="px-5 py-2.5 rounded-xl text-slate-300 font-bold hover:bg-slate-800 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={passwordLoading}
+                    className="px-6 py-2.5 rounded-xl font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 transition-colors flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg shadow-amber-500/20"
+                  >
+                    {passwordLoading ? 'Salvando...' : 'Atualizar Senha'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
       </main>
     </div>
   );

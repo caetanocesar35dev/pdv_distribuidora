@@ -35,4 +35,16 @@ export class AuthController {
   async toggleUserActive(@Param('id') id: string, @Request() req: any) {
     return this.authService.toggleUserActive(Number(id), req.user.sub);
   }
+
+  @UseGuards(AuthGuard)
+  @Post('change-password')
+  async changeOwnPassword(@Body() body: any, @Request() req: any) {
+    return this.authService.changeOwnPassword(req.user.sub, body.currentPassword, body.newPassword);
+  }
+
+  @UseGuards(AuthGuard)
+  @Post('users/:id/reset-password')
+  async resetPasswordByAdmin(@Param('id') id: string, @Body() body: any, @Request() req: any) {
+    return this.authService.resetPasswordByAdmin(req.user.sub, Number(id), body.newPassword);
+  }
 }

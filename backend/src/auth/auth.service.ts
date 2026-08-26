@@ -151,5 +151,39 @@ export class AuthService {
       }
     });
   }
+
+  async changeOwnPassword(userId: number, currentPass: string, newPass: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('Usuário não encontrado');
+
+    const isMatch = await bcrypt.compare(currentPass, user.password);
+    if (!isMatch) throw new UnauthorizedException('Senha atual incorreta');
+
+    const hashedPassword = await bcrypt.hash(newPass, 10);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword },
+    });
+
+    return { message: 'Senha atualizada com sucesso' };
+  }
+
+  async resetPasswordByAdmin(adminId: number, targetUserId: number, newPass: string) {
+    const admin = await this.prisma.user.findUnique({ where: { id: adminId } });
+    if (!admin || admin.role !== 'ADMIN') {
+      throw new UnauthorizedException('Apenas administradores podem redefinir senhas');
+    }
+
+    const targetUser = await this.prisma.user.findUnique({ where: { id: targetUserId } });
+    if (!targetUser) throw new UnauthorizedException('Usuário alvo não encontrado');
+
+    const hashedPassword = await bcrypt.hash(newPass, 10);
+    await this.prisma.user.update({
+      where: { id: targetUserId },
+      data: { password: hashedPassword },
+    });
+
+    return { message: 'Senha redefinida com sucesso' };
+  }
 }
 

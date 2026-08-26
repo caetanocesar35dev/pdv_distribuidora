@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
-import { 
-  Search, Plus, Minus, Trash2, ShoppingCart, 
+import {
+  Search, Plus, Minus, Trash2, ShoppingCart,
   DollarSign, CheckCircle2, AlertCircle, Printer, X, CreditCard, Users
 } from 'lucide-react';
 
@@ -21,7 +21,7 @@ export default function PDV() {
   const [saleResult, setSaleResult] = useState(null);
   const [error, setError] = useState('');
   const [discount, setDiscount] = useState('');
-  
+
   const barcodeInputRef = useRef(null);
 
   useEffect(() => {
@@ -100,8 +100,8 @@ export default function PDV() {
     }
 
     if (existing) {
-      setCart(cart.map(item => 
-        item.product.id === product.id 
+      setCart(cart.map(item =>
+        item.product.id === product.id
           ? { ...item, quantity: item.quantity + 1 }
           : item
       ));
@@ -115,7 +115,8 @@ export default function PDV() {
     const item = cart.find(i => i.product.id === productId);
     if (!item) return;
 
-    const newQty = item.quantity + amount;
+    const currentQty = Number(item.quantity) || 0;
+    const newQty = currentQty + amount;
     if (newQty <= 0) {
       removeFromCart(productId);
       return;
@@ -126,12 +127,56 @@ export default function PDV() {
       return;
     }
 
-    setCart(cart.map(i => 
-      i.product.id === productId 
+    setCart(cart.map(i =>
+      i.product.id === productId
         ? { ...i, quantity: newQty }
         : i
     ));
     setError('');
+  };
+
+  const handleQuantityChange = (productId, value) => {
+    setError('');
+    const item = cart.find(i => i.product.id === productId);
+    if (!item) return;
+
+    if (value === '') {
+      setCart(cart.map(i =>
+        i.product.id === productId
+          ? { ...i, quantity: '' }
+          : i
+      ));
+      return;
+    }
+
+    // Bloquear caracteres não-numéricos
+    if (!/^\d+$/.test(value)) return;
+
+    const newQty = parseInt(value, 10);
+    if (isNaN(newQty) || newQty < 0) return;
+
+    if (newQty > item.product.stock) {
+      setError(`Estoque insuficiente de "${item.product.name}". Em estoque: ${item.product.stock}`);
+      setCart(cart.map(i =>
+        i.product.id === productId
+          ? { ...i, quantity: item.product.stock }
+          : i
+      ));
+      return;
+    }
+
+    setCart(cart.map(i =>
+      i.product.id === productId
+        ? { ...i, quantity: newQty }
+        : i
+    ));
+  };
+
+  const handleQuantityBlur = (productId, value) => {
+    const qty = parseInt(value, 10);
+    if (isNaN(qty) || qty <= 0) {
+      removeFromCart(productId);
+    }
   };
 
   const removeFromCart = (productId) => {
@@ -139,19 +184,26 @@ export default function PDV() {
     setError('');
   };
 
-  const cartTotal = cart.reduce((acc, item) => acc + (item.product.price * item.quantity), 0);
+  const cartTotal = cart.reduce((acc, item) => acc + (item.product.price * (Number(item.quantity) || 0)), 0);
   const discountValue = Number(discount) || 0;
   const finalTotal = cartTotal - discountValue;
 
   const handleFinishSale = async () => {
     if (cart.length === 0) return;
+
+    const hasInvalidQty = cart.some(item => !item.quantity || Number(item.quantity) <= 0);
+    if (hasInvalidQty) {
+      setError('Por favor, insira uma quantidade válida maior que zero para todos os produtos.');
+      return;
+    }
+
     setIsFinishing(true);
     setError('');
-    
+
     try {
       const items = cart.map(item => ({
         productId: item.product.id,
-        quantity: item.quantity
+        quantity: Number(item.quantity)
       }));
 
       if (paymentMethod === 'CREDIT_STORE' && !selectedCustomer) {
@@ -238,7 +290,7 @@ export default function PDV() {
           <div>Pedido: #{saleResult.id}</div>
           <div>Data/Hora: {new Date(saleResult.createdAt).toLocaleString('pt-BR')}</div>
           <div className="border-b border-dashed border-black my-1"></div>
-          
+
           <table className="w-full text-xs text-left">
             <thead>
               <tr className="border-b border-black">
@@ -299,10 +351,10 @@ export default function PDV() {
 
       {/* Main Grid split */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-hidden min-h-0">
-        
+
         {/* Lado Esquerdo: Carrinho e Inputs (Col-span 2) */}
         <div className="lg:col-span-2 flex flex-col gap-4 overflow-hidden min-h-0">
-          
+
           {/* Inputs de Pesquisa */}
           <div className="bg-slate-900/40 border border-slate-800 p-4 rounded-2xl flex flex-col md:flex-row gap-4 shrink-0">
             {/* Input por código de barras */}
@@ -358,7 +410,7 @@ export default function PDV() {
             <div className="bg-slate-900/80 px-6 py-4 border-b border-slate-800 flex justify-between items-center shrink-0">
               <h2 className="font-semibold text-sm tracking-wide uppercase text-slate-400">Carrinho de Compras</h2>
               <span className="bg-amber-500/10 text-amber-400 px-2.5 py-0.5 rounded-full text-xs font-semibold">
-                {cart.reduce((s, i) => s + i.quantity, 0)} itens
+                {cart.reduce((s, i) => s + (Number(i.quantity) || 0), 0)} itens
               </span>
             </div>
 
@@ -392,7 +444,15 @@ export default function PDV() {
                         >
                           <Minus className="w-4 h-4" />
                         </button>
-                        <span className="w-10 text-center font-bold text-sm text-white font-mono">{item.quantity}</span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={item.quantity}
+                          onChange={(e) => handleQuantityChange(item.product.id, e.target.value)}
+                          onBlur={(e) => handleQuantityBlur(item.product.id, e.target.value)}
+                          className="w-12 text-center font-bold text-sm text-white font-mono bg-transparent focus:outline-none focus:ring-1 focus:ring-amber-500 rounded"
+                        />
                         <button
                           onClick={() => updateQuantity(item.product.id, 1)}
                           className="w-8 h-8 rounded-md flex items-center justify-center hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
@@ -418,7 +478,7 @@ export default function PDV() {
 
         {/* Lado Direito: Fechamento de Venda (Col-span 1) */}
         <div className="flex flex-col gap-6 overflow-hidden min-h-0">
-          
+
           {/* Painel Total */}
           <div className="bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between shrink-0 shadow-lg">
             <div>
@@ -441,7 +501,7 @@ export default function PDV() {
             <div className="space-y-2">
               <div className="flex justify-between text-xs text-slate-400">
                 <span>Itens:</span>
-                <span>{cart.reduce((s, i) => s + i.quantity, 0)}</span>
+                <span>{cart.reduce((s, i) => s + (Number(i.quantity) || 0), 0)}</span>
               </div>
               <div className="flex justify-between text-xs text-slate-400">
                 <span>Status Caixa:</span>
@@ -454,7 +514,7 @@ export default function PDV() {
           <div className="flex-1 bg-slate-900/40 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between min-h-0 overflow-y-auto">
             <div className="space-y-4">
               <h3 className="font-semibold text-xs uppercase tracking-wider text-slate-400">Forma de Pagamento</h3>
-              
+
               <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-3">
                 {[
                   { id: 'MONEY', label: 'Dinheiro', icon: DollarSign },
@@ -469,11 +529,10 @@ export default function PDV() {
                     <button
                       key={method.id}
                       onClick={() => setPaymentMethod(method.id)}
-                      className={`p-3.5 border rounded-xl flex flex-col items-center gap-2 cursor-pointer transition-all ${
-                        isSelected 
-                          ? 'border-amber-500 bg-amber-500/10 text-amber-400' 
-                          : 'border-slate-800 bg-slate-950/40 hover:border-slate-700 text-slate-400 hover:text-white'
-                      }`}
+                      className={`p-3.5 border rounded-xl flex flex-col items-center gap-2 cursor-pointer transition-all ${isSelected
+                        ? 'border-amber-500 bg-amber-500/10 text-amber-400'
+                        : 'border-slate-800 bg-slate-950/40 hover:border-slate-700 text-slate-400 hover:text-white'
+                        }`}
                     >
                       <Icon className="w-5 h-5 stroke-[1.5]" />
                       <span className="text-[11px] font-semibold">{method.label}</span>
@@ -532,8 +591,8 @@ export default function PDV() {
       {saleResult && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-2xl shadow-2xl p-6 relative">
-            <button 
-              onClick={() => setSaleResult(null)} 
+            <button
+              onClick={() => setSaleResult(null)}
               className="absolute right-4 top-4 text-slate-500 hover:text-white p-1 rounded-lg hover:bg-slate-800"
             >
               <X className="w-5 h-5" />
