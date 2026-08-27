@@ -10,6 +10,7 @@ import { SalesModule } from './sales/sales.module';
 import { CustomersModule } from './customers/customers.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { BackupModule } from './backup/backup.module';
+import { CommandTabsModule } from './command-tabs/command-tabs.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { BackupModule } from './backup/backup.module';
     CustomersModule,
     DashboardModule,
     BackupModule,
+    CommandTabsModule,
     ScheduleModule.forRoot(),
   ],
   controllers: [AppController],

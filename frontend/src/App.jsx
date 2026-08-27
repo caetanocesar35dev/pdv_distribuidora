@@ -1,7 +1,7 @@
 import { Routes, Route, Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { 
-  Beer, ShoppingCart, DollarSign, Package, History, LogOut, User, Users, BarChart3, Key, AlertTriangle
+  Beer, ShoppingCart, DollarSign, Package, History, LogOut, User, Users, BarChart3, Key, AlertTriangle, Coffee
 } from 'lucide-react';
 import { api } from './services/api';
 
@@ -10,9 +10,10 @@ import PDV from './pages/PDV';
 import Caixa from './pages/Caixa';
 import Estoque from './pages/Estoque';
 import Historico from './pages/Historico';
-import Usuarios from './pages/Usuarios';
+import Comandas from './pages/Comandas';
 import Clientes from './pages/Clientes';
 import Dashboard from './pages/Dashboard';
+import Usuarios from './pages/Usuarios';
 
 // Componente para proteção de rotas
 function PrivateRoute({ children }) {
@@ -83,6 +84,7 @@ function Layout() {
     { path: '/pdv', label: 'Registrar Venda', icon: ShoppingCart },
     { path: '/caixa', label: 'Controle de Caixa', icon: DollarSign },
     { path: '/estoque', label: 'Estoque / Produtos', icon: Package },
+    { path: '/comandas', label: 'Comandas', icon: Coffee },
     { path: '/historico', label: 'Histórico de Vendas', icon: History },
     { path: '/clientes', label: 'Clientes', icon: Users },
     ...(userRole === 'ADMIN' ? [{ path: '/usuarios', label: 'Usuários', icon: User }] : [])
@@ -174,6 +176,7 @@ function Layout() {
             <Route path="/pdv" element={<PDV />} />
             <Route path="/caixa" element={<Caixa />} />
             <Route path="/estoque" element={<Estoque />} />
+            <Route path="/comandas" element={<Comandas />} />
             <Route path="/historico" element={<Historico />} />
             <Route path="/clientes" element={<Clientes />} />
             <Route path="/usuarios" element={userRole === 'ADMIN' ? <Usuarios /> : <Navigate to="/pdv" replace />} />

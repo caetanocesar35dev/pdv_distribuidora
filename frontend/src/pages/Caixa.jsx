@@ -186,7 +186,7 @@ export default function Caixa() {
                     min="0"
                     value={initialBalance}
                     onChange={(e) => {
-                      const val = e.target.value;
+                      const val = e.target.value.replace(',', '.');
                       if (val === '' || Number(val) >= 0) setInitialBalance(val);
                     }}
                     placeholder="100.00"
@@ -329,7 +329,7 @@ export default function Caixa() {
                   min="0"
                   value={movementAmount}
                   onChange={(e) => {
-                    const val = e.target.value;
+                    const val = e.target.value.replace(',', '.');
                     if (val === '' || Number(val) >= 0) setMovementAmount(val);
                   }}
                   placeholder="0.00"

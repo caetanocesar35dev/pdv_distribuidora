@@ -32,9 +32,11 @@ model Product {
   price     Float
   costPrice Float      @default(0)
   stock     Int        @default(0)
+  packQuantity Int     @default(1)
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
   saleItems SaleItem[]
+  commandItems CommandItem[]
 
   // Campos de auditoria
   modifierId       Int?
@@ -50,6 +52,7 @@ model ProductHistory {
   price     Float
   costPrice Float  @default(0)
   stock     Int
+  packQuantity Int @default(1)
 
   // Campos de auditoria
   modifierId       Int?
@@ -73,6 +76,9 @@ model Sale {
   
   customerId    Int?
   customer      Customer?     @relation(fields: [customerId], references: [id])
+  
+  commandTabId  Int?          @unique
+  commandTab    CommandTab?   @relation(fields: [commandTabId], references: [id])
   
   items         SaleItem[]
 }
@@ -146,6 +152,7 @@ model Customer {
   
   sales     Sale[]
   payments  CustomerPayment[]
+  commandTabs CommandTab[]
 }
 
 /// Histórico de pagamentos de dívidas (fiado) feitos pelos clientes
@@ -157,4 +164,38 @@ model CustomerPayment {
   createdAt      DateTime     @default(now())
   
   customer       Customer     @relation(fields: [customerId], references: [id])
+}
+
+/// Representa uma comanda (conta em aberto) para consumo no local
+model CommandTab {
+  id          Int           @id @default(autoincrement())
+  name        String
+  status      TabStatus     @default(OPEN)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  
+  customerId  Int?
+  customer    Customer?     @relation(fields: [customerId], references: [id])
+  
+  items       CommandItem[]
+  sale        Sale?
+}
+
+enum TabStatus {
+  OPEN
+  CLOSED
+}
+
+/// Representa os itens consumidos dentro de uma comanda
+model CommandItem {
+  id            Int        @id @default(autoincrement())
+  commandTabId  Int
+  productId     Int
+  quantity      Int
+  price         Float
+  costPrice     Float      @default(0)
+  addedAt       DateTime   @default(now())
+  
+  commandTab    CommandTab @relation(fields: [commandTabId], references: [id])
+  product       Product    @relation(fields: [productId], references: [id])
 }
