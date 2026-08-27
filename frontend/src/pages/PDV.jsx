@@ -603,7 +603,7 @@ export default function PDV() {
                   min="0"
                   step="0.01"
                   value={discount}
-                  onChange={(e) => setDiscount(e.target.value)}
+                  onChange={(e) => setDiscount(e.target.value.replace(',', '.'))}
                   placeholder="0.00"
                   className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500 transition-colors text-sm"
                 />

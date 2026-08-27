@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { 
   History, Search, Printer, XSquare, AlertTriangle, CheckCircle2, 
-  Calendar, Info, X, ChevronRight
+  Calendar, Info, X, ChevronRight, Coffee
 } from 'lucide-react';
 
 export default function Historico() {
@@ -407,7 +407,15 @@ export default function Historico() {
                               : 'hover:bg-slate-900/10'
                           }`}
                         >
-                          <td className="px-6 py-4 font-mono font-bold text-white">#{sale.id}</td>
+                          <td className="px-6 py-4 font-mono font-bold text-white flex items-center gap-2">
+                            #{sale.id}
+                            {sale.commandTab && (
+                              <span className="flex items-center gap-1 bg-amber-500/20 text-amber-500 text-[10px] px-2 py-0.5 rounded-full font-sans uppercase tracking-wider" title={`Mesa: ${sale.commandTab.name}`}>
+                                <Coffee className="w-3 h-3" />
+                                Comanda
+                              </span>
+                            )}
+                          </td>
                           <td className="px-6 py-4 text-xs text-slate-400">
                             {new Date(sale.createdAt).toLocaleString('pt-BR')}
                           </td>
@@ -445,7 +453,15 @@ export default function Historico() {
             <div className="space-y-6">
               <div className="flex justify-between items-start border-b border-slate-800 pb-4">
                 <div>
-                  <h3 className="text-lg font-bold text-white">Detalhes do Pedido #{selectedSale.id}</h3>
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    Detalhes do Pedido #{selectedSale.id}
+                    {selectedSale.commandTab && (
+                      <span className="flex items-center gap-1 bg-amber-500/20 text-amber-500 text-xs px-2 py-1 rounded-lg uppercase tracking-wider">
+                        <Coffee className="w-4 h-4" />
+                        Comanda: {selectedSale.commandTab.name}
+                      </span>
+                    )}
+                  </h3>
                   <p className="text-slate-500 text-xs mt-1 flex items-center gap-1">
                     <Calendar className="w-3.5 h-3.5" />
                     {new Date(selectedSale.createdAt).toLocaleString('pt-BR')}

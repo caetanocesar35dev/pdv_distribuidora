@@ -78,9 +78,11 @@ export default function Estoque() {
     setError('');
     setSuccess('');
     try {
+      // Aceitar tanto vírgula quanto ponto e converter para float
+      const parsedQty = parseFloat(data.quantity.toString().replace(',', '.'));
       const finalQuantity = isPackEntry 
-        ? parseInt(data.quantity) * (selectedProduct.packQuantity || 1) 
-        : parseInt(data.quantity);
+        ? Math.round(parsedQty * (selectedProduct.packQuantity || 1)) 
+        : Math.round(parsedQty);
         
       await api.post(`/products/${selectedProduct.id}/entry`, {
         quantity: finalQuantity
@@ -460,8 +462,9 @@ export default function Estoque() {
                 </label>
                 <input
                   type="number"
-                  {...register('quantity', { required: 'Defina a quantidade de entrada', min: { value: 1, message: 'A quantidade deve ser de no mínimo 1' } })}
-                  placeholder={isPackEntry ? "Ex: 10 (fardos)" : "Ex: 24 (unidades)"}
+                  step="any"
+                  {...register('quantity', { required: 'Defina a quantidade de entrada', min: { value: 0.01, message: 'A quantidade deve ser maior que zero' } })}
+                  placeholder={isPackEntry ? "Ex: 10.5 (fardos)" : "Ex: 24 (unidades)"}
                   className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-655 focus:outline-none focus:border-amber-500 transition-colors text-sm"
                 />
                 {errors.quantity && <span className="text-red-400 text-xs mt-1 block">{errors.quantity.message}</span>}

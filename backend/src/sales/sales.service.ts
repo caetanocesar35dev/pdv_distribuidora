@@ -6,7 +6,7 @@ import { PaymentMethod, SaleStatus, CashStatus, MovementType } from '@prisma/cli
 export class SalesService {
   constructor(private prisma: PrismaService) {}
 
-  async create(body: { paymentMethod: PaymentMethod; customerId?: number; discount?: number; items: { productId: number; quantity: number }[] }, userId?: number) {
+  async create(body: { paymentMethod: PaymentMethod; customerId?: number; discount?: number; skipStockUpdate?: boolean; commandTabId?: number; items: { productId: number; quantity: number }[] }, userId?: number) {
     if (!body.items || body.items.length === 0) {
       throw new BadRequestException('A venda deve conter pelo menos um item.');
     }
@@ -69,11 +69,13 @@ export class SalesService {
       }
 
       // 3. Atualizar estoques dos produtos
-      for (const update of stockUpdates) {
-        await tx.product.update({
-          where: { id: update.productId },
-          data: { stock: update.newStock },
-        });
+      if (!body.skipStockUpdate) {
+        for (const update of stockUpdates) {
+          await tx.product.update({
+            where: { id: update.productId },
+            data: { stock: update.newStock },
+          });
+        }
       }
 
       // 4. Aplicar Desconto
@@ -92,6 +94,7 @@ export class SalesService {
           discount,
           paymentMethod: body.paymentMethod,
           customerId: body.customerId,
+          commandTabId: body.commandTabId,
           userId,
           status: SaleStatus.COMPLETED,
           items: {
@@ -170,6 +173,7 @@ export class SalesService {
         include: {
           user: { select: { name: true } },
           customer: { select: { name: true, phone: true } },
+          commandTab: true,
           items: {
             include: {
               product: true,
@@ -213,6 +217,7 @@ export class SalesService {
       include: {
         user: { select: { name: true } },
         customer: { select: { name: true, phone: true } },
+        commandTab: true,
         items: {
           include: {
             product: true,
