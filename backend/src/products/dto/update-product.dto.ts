@@ -19,4 +19,9 @@ export class UpdateProductDto {
   @IsNumber()
   @Min(0, { message: 'O estoque não pode ser negativo' })
   stock?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1, { message: 'A quantidade por fardo/engradado deve ser no mínimo 1' })
+  packQuantity?: number;
 }

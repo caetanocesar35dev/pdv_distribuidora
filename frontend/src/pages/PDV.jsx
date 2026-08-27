@@ -21,6 +21,7 @@ export default function PDV() {
   const [saleResult, setSaleResult] = useState(null);
   const [error, setError] = useState('');
   const [discount, setDiscount] = useState('');
+  const [isPackSale, setIsPackSale] = useState(false);
 
   const barcodeInputRef = useRef(null);
 
@@ -92,21 +93,24 @@ export default function PDV() {
 
   const addToCart = (product) => {
     const existing = cart.find(item => item.product.id === product.id);
-    const cartQty = existing ? existing.quantity : 0;
+    const cartQty = existing ? Number(existing.quantity) : 0;
+    
+    const packQty = Number(product.packQuantity) || 1;
+    const qtyToAdd = isPackSale && packQty > 1 ? packQty : 1;
 
-    if (product.stock <= cartQty) {
-      setError(`Estoque insuficiente de "${product.name}". Em estoque: ${product.stock}`);
+    if (product.stock < cartQty + qtyToAdd) {
+      setError(`Estoque insuficiente de "${product.name}". Em estoque: ${product.stock} (Tentou adicionar: ${qtyToAdd})`);
       return;
     }
 
     if (existing) {
       setCart(cart.map(item =>
         item.product.id === product.id
-          ? { ...item, quantity: item.quantity + 1 }
+          ? { ...item, quantity: cartQty + qtyToAdd }
           : item
       ));
     } else {
-      setCart([...cart, { product, quantity: 1 }]);
+      setCart([...cart, { product, quantity: qtyToAdd }]);
     }
     setError('');
   };
@@ -404,6 +408,21 @@ export default function PDV() {
               </button>
             </div>
           </div>
+          
+          <div className="bg-slate-900/20 border border-slate-800/80 px-4 py-3 rounded-2xl shrink-0 flex items-center justify-between">
+            <label className="flex items-center gap-3 cursor-pointer text-amber-500 font-semibold text-sm">
+              <input
+                type="checkbox"
+                checked={isPackSale}
+                onChange={(e) => setIsPackSale(e.target.checked)}
+                className="w-5 h-5 rounded border-slate-700 text-amber-500 focus:ring-amber-500 focus:ring-offset-slate-900 bg-slate-950"
+              />
+              Modo de Venda por Lote/Fardo
+            </label>
+            <span className="text-slate-500 text-xs hidden md:block">
+              (Adiciona o fardo inteiro ao selecionar o produto)
+            </span>
+          </div>
 
           {/* Lista de itens no carrinho */}
           <div className="flex-1 bg-slate-900/40 border border-slate-800 rounded-2xl flex flex-col overflow-hidden min-h-0">
@@ -437,28 +456,46 @@ export default function PDV() {
                       </div>
 
                       {/* Quantidade */}
-                      <div className="flex items-center bg-slate-900 border border-slate-800 rounded-lg p-1">
-                        <button
-                          onClick={() => updateQuantity(item.product.id, -1)}
-                          className="w-8 h-8 rounded-md flex items-center justify-center hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
-                        >
-                          <Minus className="w-4 h-4" />
-                        </button>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          value={item.quantity}
-                          onChange={(e) => handleQuantityChange(item.product.id, e.target.value)}
-                          onBlur={(e) => handleQuantityBlur(item.product.id, e.target.value)}
-                          className="w-12 text-center font-bold text-sm text-white font-mono bg-transparent focus:outline-none focus:ring-1 focus:ring-amber-500 rounded"
-                        />
-                        <button
-                          onClick={() => updateQuantity(item.product.id, 1)}
-                          className="w-8 h-8 rounded-md flex items-center justify-center hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
-                        >
-                          <Plus className="w-4 h-4" />
-                        </button>
+                      <div className="flex flex-col items-center gap-1">
+                        <div className="flex items-center bg-slate-900 border border-slate-800 rounded-lg p-1">
+                          <button
+                            onClick={() => updateQuantity(item.product.id, -1)}
+                            className="w-8 h-8 rounded-md flex items-center justify-center hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                          >
+                            <Minus className="w-4 h-4" />
+                          </button>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            value={item.quantity}
+                            onChange={(e) => handleQuantityChange(item.product.id, e.target.value)}
+                            onBlur={(e) => handleQuantityBlur(item.product.id, e.target.value)}
+                            className="w-12 text-center font-bold text-sm text-white font-mono bg-transparent focus:outline-none focus:ring-1 focus:ring-amber-500 rounded"
+                          />
+                          <button
+                            onClick={() => updateQuantity(item.product.id, 1)}
+                            className="w-8 h-8 rounded-md flex items-center justify-center hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </button>
+                        </div>
+                        {item.product.packQuantity > 1 && (
+                          <div className="flex gap-1 w-full mt-1">
+                            <button
+                              onClick={() => updateQuantity(item.product.id, -(Number(item.product.packQuantity) || 1))}
+                              className="flex-1 text-[10px] bg-red-500/10 text-red-400 hover:bg-red-500/20 py-1 rounded font-semibold text-center transition-colors cursor-pointer"
+                            >
+                              -1 Fardo
+                            </button>
+                            <button
+                              onClick={() => updateQuantity(item.product.id, Number(item.product.packQuantity) || 1)}
+                              className="flex-1 text-[10px] bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 py-1 rounded font-semibold text-center transition-colors cursor-pointer"
+                            >
+                              +1 Fardo ({item.product.packQuantity})
+                            </button>
+                          </div>
+                        )}
                       </div>
 
                       {/* Botão Remover */}

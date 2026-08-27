@@ -16,6 +16,7 @@ export default function Estoque() {
   // Modais
   const [activeModal, setActiveModal] = useState(null); // 'create' | 'edit' | 'entry'
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [isPackEntry, setIsPackEntry] = useState(false);
 
   const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm();
 
@@ -44,7 +45,8 @@ export default function Estoque() {
         name: data.name,
         price: parseFloat(data.price),
         costPrice: parseFloat(data.costPrice || 0),
-        stock: parseInt(data.stock) || 0
+        stock: parseInt(data.stock) || 0,
+        packQuantity: parseInt(data.packQuantity) || 1
       });
       setSuccess(`Produto "${data.name}" criado com sucesso!`);
       loadProducts();
@@ -61,7 +63,8 @@ export default function Estoque() {
       await api.patch(`/products/${selectedProduct.id}`, {
         name: data.name,
         price: parseFloat(data.price),
-        costPrice: parseFloat(data.costPrice || 0)
+        costPrice: parseFloat(data.costPrice || 0),
+        packQuantity: parseInt(data.packQuantity) || 1
       });
       setSuccess(`Produto "${data.name}" atualizado com sucesso!`);
       loadProducts();
@@ -75,8 +78,12 @@ export default function Estoque() {
     setError('');
     setSuccess('');
     try {
+      const finalQuantity = isPackEntry 
+        ? parseInt(data.quantity) * (selectedProduct.packQuantity || 1) 
+        : parseInt(data.quantity);
+        
       await api.post(`/products/${selectedProduct.id}/entry`, {
-        quantity: parseInt(data.quantity)
+        quantity: finalQuantity
       });
       setSuccess(`Entrada de estoque para "${selectedProduct.name}" registrada!`);
       loadProducts();
@@ -108,6 +115,11 @@ export default function Estoque() {
       setValue('name', product.name);
       setValue('price', product.price);
       setValue('costPrice', product.costPrice || 0);
+      setValue('packQuantity', product.packQuantity || 1);
+    }
+    
+    if (type === 'entry') {
+      setIsPackEntry(false);
     }
   };
 
@@ -195,6 +207,7 @@ export default function Estoque() {
                   <th className="px-6 py-4">Produto</th>
                   <th className="px-6 py-4 text-right">Preço Venda</th>
                   <th className="px-6 py-4 text-right">Preço Custo</th>
+                  <th className="px-6 py-4 text-center">Fardo</th>
                   <th className="px-6 py-4 text-center">Quantidade</th>
                   <th className="px-6 py-4 text-center">Ações</th>
                 </tr>
@@ -216,16 +229,24 @@ export default function Estoque() {
                         <td className="px-6 py-4 font-semibold text-white">{product.name}</td>
                         <td className="px-6 py-4 text-right font-bold text-amber-500">R$ {product.price.toFixed(2)}</td>
                         <td className="px-6 py-4 text-right font-bold text-slate-400">R$ {(product.costPrice || 0).toFixed(2)}</td>
+                        <td className="px-6 py-4 text-center text-slate-400 text-xs">{product.packQuantity > 1 ? `${product.packQuantity} un.` : '-'}</td>
                         <td className="px-6 py-4 text-center">
-                          <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                            isOut 
-                              ? 'bg-red-500/10 text-red-500' 
-                              : isLowStock 
-                                ? 'bg-amber-500/10 text-amber-400' 
-                                : 'bg-emerald-500/10 text-emerald-400'
-                          }`}>
-                            {product.stock} {product.stock === 1 ? 'unidade' : 'unidades'}
-                          </span>
+                          <div className="flex flex-col items-center justify-center gap-1.5">
+                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                              isOut 
+                                ? 'bg-red-500/10 text-red-500' 
+                                : isLowStock 
+                                  ? 'bg-amber-500/10 text-amber-400' 
+                                  : 'bg-emerald-500/10 text-emerald-400'
+                            }`}>
+                              {product.stock} {product.stock === 1 ? 'unidade' : 'unidades'}
+                            </span>
+                            {product.packQuantity > 1 && (
+                              <span className="text-xs font-medium text-slate-400 bg-slate-900/50 px-2 py-0.5 rounded border border-slate-800/80">
+                                ~ {parseFloat((product.stock / product.packQuantity).toFixed(2))} {parseFloat((product.stock / product.packQuantity).toFixed(2)) === 1 ? 'caixa' : 'caixas'}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex justify-center items-center gap-2">
@@ -317,6 +338,18 @@ export default function Estoque() {
                     className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-655 focus:outline-none focus:border-amber-500 transition-colors text-sm"
                   />
                 </div>
+
+                <div>
+                  <label className="block text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">Unidades p/ Fardo</label>
+                  <input
+                    type="number"
+                    {...register('packQuantity', { min: { value: 1, message: 'Mínimo de 1 unidade por fardo' } })}
+                    placeholder="Ex: 24"
+                    defaultValue="1"
+                    className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-655 focus:outline-none focus:border-amber-500 transition-colors text-sm"
+                  />
+                  {errors.packQuantity && <span className="text-red-400 text-xs mt-1 block">{errors.packQuantity.message}</span>}
+                </div>
               </div>
 
               <button
@@ -372,6 +405,16 @@ export default function Estoque() {
                   />
                   {errors.costPrice && <span className="text-red-400 text-xs mt-1 block">{errors.costPrice.message}</span>}
                 </div>
+
+                <div>
+                  <label className="block text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">Unidades p/ Fardo</label>
+                  <input
+                    type="number"
+                    {...register('packQuantity', { min: { value: 1, message: 'Mínimo de 1 unidade por fardo' } })}
+                    className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500 transition-colors text-sm"
+                  />
+                  {errors.packQuantity && <span className="text-red-400 text-xs mt-1 block">{errors.packQuantity.message}</span>}
+                </div>
               </div>
 
               <button
@@ -396,12 +439,29 @@ export default function Estoque() {
             <p className="text-slate-400 text-xs mb-6">Adicionar produtos ao estoque de: <span className="text-white font-semibold">{selectedProduct.name}</span></p>
 
             <form onSubmit={handleSubmit(handleStockEntry)} className="space-y-4">
+              {selectedProduct?.packQuantity > 1 && (
+                <div className="flex items-center gap-2 mb-2 p-3 bg-slate-950/50 rounded-xl border border-slate-800/80">
+                  <input
+                    type="checkbox"
+                    id="packToggle"
+                    checked={isPackEntry}
+                    onChange={(e) => setIsPackEntry(e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-700 text-amber-500 focus:ring-amber-500 focus:ring-offset-slate-900 bg-slate-900"
+                  />
+                  <label htmlFor="packToggle" className="text-sm font-semibold text-amber-400 cursor-pointer">
+                    Entrada em Fardos/Engradados ({selectedProduct.packQuantity} un/fardo)
+                  </label>
+                </div>
+              )}
+
               <div>
-                <label className="block text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">Quantidade a Adicionar (Unidades)</label>
+                <label className="block text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">
+                  Quantidade a Adicionar {isPackEntry ? '(Fardos)' : '(Unidades)'}
+                </label>
                 <input
                   type="number"
-                  {...register('quantity', { required: 'Defina a quantidade de entrada', min: { value: 1, message: 'A quantidade deve ser de no mínimo 1 unidade' } })}
-                  placeholder="Ex: 24 (um fardo)"
+                  {...register('quantity', { required: 'Defina a quantidade de entrada', min: { value: 1, message: 'A quantidade deve ser de no mínimo 1' } })}
+                  placeholder={isPackEntry ? "Ex: 10 (fardos)" : "Ex: 24 (unidades)"}
                   className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-655 focus:outline-none focus:border-amber-500 transition-colors text-sm"
                 />
                 {errors.quantity && <span className="text-red-400 text-xs mt-1 block">{errors.quantity.message}</span>}

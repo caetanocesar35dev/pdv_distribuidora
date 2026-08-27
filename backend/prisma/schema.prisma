@@ -32,6 +32,7 @@ model Product {
   price     Float
   costPrice Float      @default(0)
   stock     Int        @default(0)
+  packQuantity Int     @default(1)
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
   saleItems SaleItem[]
@@ -50,6 +51,7 @@ model ProductHistory {
   price     Float
   costPrice Float  @default(0)
   stock     Int
+  packQuantity Int @default(1)
 
   // Campos de auditoria
   modifierId       Int?
