@@ -1,4 +1,4 @@
-const API_URL = 'http://localhost:3000/api';
+const API_URL = 'http://localhost:3001/api';
 
 const getHeaders = () => {
   const token = localStorage.getItem('token');
@@ -31,6 +31,15 @@ export const api = {
   async post(endpoint, body) {
     const res = await fetch(`${API_URL}${endpoint}`, {
       method: 'POST',
+      headers: getHeaders(),
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    return handleResponse(res);
+  },
+
+  async put(endpoint, body) {
+    const res = await fetch(`${API_URL}${endpoint}`, {
+      method: 'PUT',
       headers: getHeaders(),
       body: body ? JSON.stringify(body) : undefined,
     });

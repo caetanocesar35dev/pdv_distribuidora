@@ -12,8 +12,7 @@ const execAsync = promisify(exec);
 export class BackupService {
   private readonly logger = new Logger(BackupService.name);
 
-  // Executa todos os dias às 03:00. Pode mudar para CronExpression.EVERY_MINUTE para testar.
-  @Cron(CronExpression.EVERY_30_SECONDS)
+  @Cron(CronExpression.EVERY_DAY_AT_1PM)
   async handleCron() {
     this.logger.log('Iniciando rotina de backup diário (Nodemailer)...');
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
