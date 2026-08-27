@@ -169,6 +169,7 @@ export class SalesService {
         take: limit,
         include: {
           user: { select: { name: true } },
+          customer: { select: { name: true, phone: true } },
           items: {
             include: {
               product: true,
@@ -211,6 +212,7 @@ export class SalesService {
       where: { id },
       include: {
         user: { select: { name: true } },
+        customer: { select: { name: true, phone: true } },
         items: {
           include: {
             product: true,

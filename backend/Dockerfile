@@ -2,6 +2,8 @@ FROM node:24-alpine
 
 WORKDIR /usr/src/app
 
+# Instala o client do PostgreSQL para o comando pg_dump do cronjob
+RUN apk add --no-cache postgresql-client
 # Copia os arquivos de dependência
 COPY package*.json ./
 

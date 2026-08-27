@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, UserPlus, Power, AlertTriangle, Briefcase, Mail, Lock, User as UserIcon, Shield } from 'lucide-react';
+import { Users, UserPlus, Power, AlertTriangle, Briefcase, Mail, Lock, User as UserIcon, Shield, Eye, EyeOff } from 'lucide-react';
 import { api } from '../services/api';
 
 export default function Usuarios() {
@@ -11,6 +11,7 @@ export default function Usuarios() {
   const [formData, setFormData] = useState({ name: '', email: '', password: '', role: 'USER' });
   const [formError, setFormError] = useState('');
   const [formLoading, setFormLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const [resetModal, setResetModal] = useState({ show: false, userId: null, userName: '' });
   const [newPassword, setNewPassword] = useState('');
@@ -240,14 +241,21 @@ export default function Usuarios() {
                 <div className="relative">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
                   <input
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     required
                     minLength="6"
                     value={formData.password}
                     onChange={e => setFormData({...formData, password: e.target.value})}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-12 pr-12 text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all"
                     placeholder="******"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-amber-500 transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
                 </div>
               </div>
 

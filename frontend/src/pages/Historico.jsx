@@ -108,7 +108,8 @@ export default function Historico() {
       MONEY: 'Dinheiro',
       PIX: 'PIX',
       DEBIT: 'Cartão de Débito',
-      CREDIT: 'Cartão de Crédito'
+      CREDIT: 'Cartão de Crédito',
+      CREDIT_STORE: 'Fiado'
     };
     return types[method] || method;
   };
@@ -161,6 +162,9 @@ export default function Historico() {
           <div>Data/Hora: {new Date(selectedSale.createdAt).toLocaleString('pt-BR')}</div>
           {selectedSale.user && (
             <div>Operador: {selectedSale.user.name}</div>
+          )}
+          {selectedSale.customer && (
+            <div>Cliente: {selectedSale.customer.name}</div>
           )}
           <div>Status: {selectedSale.status === 'CANCELED' ? 'CANCELADO' : 'CONCLUÍDO'}</div>
           <div className="border-b border-dashed border-black my-1"></div>
@@ -254,6 +258,7 @@ export default function Historico() {
             <option value="PIX">PIX</option>
             <option value="DEBIT">Cartão de Débito</option>
             <option value="CREDIT">Cartão de Crédito</option>
+            <option value="CREDIT_STORE">Fiado</option>
           </select>
         </div>
         
@@ -448,6 +453,12 @@ export default function Historico() {
                   {selectedSale.user && userRole === 'ADMIN' && (
                     <p className="text-slate-400 text-xs mt-1.5 font-medium border-l-2 border-amber-500 pl-2">
                       Venda realizada por: <span className="text-white font-bold">{selectedSale.user.name}</span>
+                    </p>
+                  )}
+                  {selectedSale.customer && (
+                    <p className="text-slate-400 text-xs mt-1.5 font-medium border-l-2 border-blue-500 pl-2">
+                      Cliente: <span className="text-white font-bold">{selectedSale.customer.name}</span>
+                      {selectedSale.customer.phone && <span className="text-slate-500 ml-1">({selectedSale.customer.phone})</span>}
                     </p>
                   )}
                 </div>

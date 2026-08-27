@@ -2,12 +2,14 @@ name: distribuidora
 #configurar um restart always
 services:
   postgres:
-    image: postgres:17
+    image: postgres:16
     container_name: distribuidora_db
-    env_file:
-      - ./backend/.env
+    environment:
+      - POSTGRES_USER=u_postgresql_distribuidora
+      - POSTGRES_PASSWORD=99546350julio
+      - POSTGRES_DB=db_distribuidora
     ports:
-      - "5432:5432"
+      - "5435:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: always
@@ -18,7 +20,7 @@ services:
       dockerfile: Dockerfile
     container_name: distribuidora_backend
     ports:
-      - "3000:3000"
+      - "3001:3001"
     env_file:
       - ./backend/.env
     environment:
