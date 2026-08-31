@@ -47,6 +47,12 @@ dist-ssr/
 .DS_Store
 Thumbs.db
 
+# Rclone (contém tokens e credenciais OAuth)
+rclone/rclone.conf
+
+# Arquivos de teste
+teste_backup.txt
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

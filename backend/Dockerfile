@@ -2,8 +2,6 @@ FROM node:24-alpine
 
 WORKDIR /usr/src/app
 
-# Instala o client do PostgreSQL para o comando pg_dump do cronjob
-RUN apk add --no-cache postgresql-client
 # Copia os arquivos de dependência
 COPY package*.json ./
 
@@ -17,7 +15,11 @@ COPY . .
 RUN npx prisma generate
 RUN npm run build
 
+# Dá permissão de execução ao entrypoint
+RUN chmod +x entrypoint.sh
+
 EXPOSE 3000
 
-# Comando para iniciar o servidor em modo de produção
-CMD ["npm", "run", "start:prod"]
+# Roda migrations automaticamente e depois inicia o servidor
+ENTRYPOINT ["./entrypoint.sh"]
+

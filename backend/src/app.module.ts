@@ -9,7 +9,7 @@ import { CashRegisterModule } from './cash-register/cash-register.module';
 import { SalesModule } from './sales/sales.module';
 import { CustomersModule } from './customers/customers.module';
 import { DashboardModule } from './dashboard/dashboard.module';
-import { BackupModule } from './backup/backup.module';
+
 import { CommandTabsModule } from './command-tabs/command-tabs.module';
 
 @Module({
@@ -21,7 +21,7 @@ import { CommandTabsModule } from './command-tabs/command-tabs.module';
     SalesModule,
     CustomersModule,
     DashboardModule,
-    BackupModule,
+
     CommandTabsModule,
     ScheduleModule.forRoot(),
   ],
