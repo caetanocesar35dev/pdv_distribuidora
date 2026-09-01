@@ -8,6 +8,9 @@ ENV TZ=America/Sao_Paulo
 
 WORKDIR /backup
 
+# Força o uso do usuário root (necessário para o crond no Alpine)
+USER root
+
 # Copia os scripts e dá permissão de execução
 COPY backup.sh /backup/backup.sh
 COPY entrypoint.sh /backup/entrypoint.sh

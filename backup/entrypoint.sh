@@ -4,4 +4,5 @@
 env | grep -E '^(DATABASE_URL|TZ|PATH)=' | sed 's/^/export /' > /backup/env.sh
 
 # Inicia o cron daemon em primeiro plano
-exec crond -f -l 2
+crond -f -l 2
+
