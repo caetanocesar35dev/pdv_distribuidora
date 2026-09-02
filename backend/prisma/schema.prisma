@@ -41,6 +41,10 @@ model Product {
   // Campos de auditoria
   modifierId       Int?
   modifiedEndpoint String?
+
+  // Relacionamento opcional com Tipo de Vasilhame
+  bottleTypeId     Int?
+  bottleType       BottleType? @relation(fields: [bottleTypeId], references: [id])
 }
 
 /// Tabela de auditoria gerada via trigger que armazena o histórico de todas as alterações feitas nos produtos.
@@ -213,6 +217,7 @@ model BottleType {
 
   customerBalances CustomerBottleBalance[]
   movements        BottleMovement[]
+  products         Product[]
 }
 
 /// Controla quantos vasilhames de um tipo específico um cliente pegou emprestado (saldo devedor do cliente em garrafas).

@@ -17,12 +17,14 @@ export class ProductsService {
   async findAll() {
     return this.prisma.product.findMany({
       orderBy: { name: 'asc' },
+      include: { bottleType: true }
     });
   }
 
   async findOne(id: number) {
     const product = await this.prisma.product.findUnique({
       where: { id },
+      include: { bottleType: true }
     });
     if (!product) {
       throw new NotFoundException('Produto não encontrado');
@@ -60,6 +62,7 @@ export class ProductsService {
         costPrice: Number(data.costPrice),
         stock: data.stock !== undefined ? Number(data.stock) : 0,
         packQuantity: data.packQuantity !== undefined ? Number(data.packQuantity) : 1,
+        bottleTypeId: data.bottleTypeId ? Number(data.bottleTypeId) : null,
         modifierId: data.modifierId,
         modifiedEndpoint: data.modifiedEndpoint,
       },
@@ -77,6 +80,7 @@ export class ProductsService {
         costPrice: data.costPrice !== undefined ? Number(data.costPrice) : undefined,
         stock: data.stock !== undefined ? Number(data.stock) : undefined,
         packQuantity: data.packQuantity !== undefined ? Number(data.packQuantity) : undefined,
+        bottleTypeId: data.bottleTypeId !== undefined ? (data.bottleTypeId ? Number(data.bottleTypeId) : null) : undefined,
         modifierId: data.modifierId,
         modifiedEndpoint: data.modifiedEndpoint,
       },

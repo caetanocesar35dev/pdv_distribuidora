@@ -28,7 +28,7 @@ export default function PDV() {
 
   // Controle de Vasilhames no Checkout
   const [bottleTypes, setBottleTypes] = useState([]);
-  const [bottleMovements, setBottleMovements] = useState([]);
+  const [returnedBottles, setReturnedBottles] = useState([]);
 
   const barcodeInputRef = useRef(null);
 
@@ -209,6 +209,19 @@ export default function PDV() {
   const discountValue = Number(discount) || 0;
   const finalTotal = cartTotal - discountValue;
 
+  const requiredBottles = cart.reduce((acc, item) => {
+    if (item.product.bottleTypeId) {
+      const typeId = item.product.bottleTypeId;
+      const current = acc.find(b => b.bottleTypeId === typeId);
+      if (current) {
+        current.quantity += Number(item.quantity) || 0;
+      } else {
+        acc.push({ bottleTypeId: typeId, quantity: Number(item.quantity) || 0 });
+      }
+    }
+    return acc;
+  }, []);
+
   const handleFinishSale = async () => {
     if (cart.length === 0) return;
 
@@ -220,15 +233,10 @@ export default function PDV() {
 
     // Trava de segurança para vasilhames esquecidos
     const typeSelect = document.getElementById('bottleTypeSelect');
-    const takeInput = document.getElementById('bottleTakeQtyInput');
     const returnInput = document.getElementById('bottleReturnQtyInput');
     
-    const hasUnaddedVasilhame = typeSelect?.value && (
-      (parseInt(takeInput?.value) > 0) || (parseInt(returnInput?.value) > 0)
-    );
-    
-    if (hasUnaddedVasilhame) {
-      setError('Você preencheu os campos de vasilhame, mas esqueceu de clicar no botão "+" para adicionar à lista.');
+    if (typeSelect?.value && parseInt(returnInput?.value) > 0) {
+      setError('Você preencheu o campo de devolução de vasilhame, mas esqueceu de clicar no botão "+" para adicionar à lista.');
       return;
     }
 
@@ -247,23 +255,11 @@ export default function PDV() {
         return;
       }
 
-      const payloadMovements = [];
-      bottleMovements.forEach(bm => {
-        if (bm.takeQty > 0) {
-          payloadMovements.push({
-            bottleTypeId: bm.bottleTypeId,
-            quantity: bm.takeQty,
-            type: 'CUSTOMER_BORROW'
-          });
-        }
-        if (bm.returnQty > 0) {
-          payloadMovements.push({
-            bottleTypeId: bm.bottleTypeId,
-            quantity: bm.returnQty,
-            type: 'CUSTOMER_RETURN'
-          });
-        }
-      });
+      const payloadMovements = returnedBottles.map(rb => ({
+        bottleTypeId: rb.bottleTypeId,
+        quantity: rb.quantity,
+        type: 'CUSTOMER_RETURN'
+      }));
 
       const res = await api.post('/sales', {
         paymentMethod,
@@ -280,7 +276,7 @@ export default function PDV() {
       setCart([]);
       setSelectedCustomer('');
       setDiscount('');
-      setBottleMovements([]);
+      setReturnedBottles([]);
       loadProducts(); // Recarregar produtos para atualizar estoque em tela
     } catch (err) {
       setError(err.message || 'Erro ao finalizar venda');
@@ -289,22 +285,22 @@ export default function PDV() {
     }
   };
 
-  const addBottleMovement = (bottleTypeId, takeQty, returnQty) => {
-    if (takeQty === 0 && returnQty === 0) return;
-    const existing = bottleMovements.find(r => r.bottleTypeId === bottleTypeId);
+  const addReturnedBottle = (bottleTypeId, quantity) => {
+    if (quantity === 0) return;
+    const existing = returnedBottles.find(r => r.bottleTypeId === bottleTypeId);
     if (existing) {
-      setBottleMovements(bottleMovements.map(r => 
+      setReturnedBottles(returnedBottles.map(r => 
         r.bottleTypeId === bottleTypeId 
-          ? { ...r, takeQty: r.takeQty + takeQty, returnQty: r.returnQty + returnQty }
+          ? { ...r, quantity: r.quantity + quantity }
           : r
       ));
     } else {
-      setBottleMovements([...bottleMovements, { bottleTypeId, takeQty, returnQty }]);
+      setReturnedBottles([...returnedBottles, { bottleTypeId, quantity }]);
     }
   };
 
-  const removeBottleMovement = (bottleTypeId) => {
-    setBottleMovements(bottleMovements.filter(r => r.bottleTypeId !== bottleTypeId));
+  const removeReturnedBottle = (bottleTypeId) => {
+    setReturnedBottles(returnedBottles.filter(r => r.bottleTypeId !== bottleTypeId));
   };
 
   const generateReceiptHTML = () => {
@@ -749,99 +745,91 @@ export default function PDV() {
               <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-800">
                 <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
                   <Beer className="w-6 h-6 text-amber-500" />
-                  Vasilhames (Empréstimo / Devolução)
+                  Vasilhames na Venda
                 </h2>
-                {!selectedCustomer && (
-                  <p className="text-xs text-rose-400 mb-3 bg-rose-500/10 p-2 rounded border border-rose-500/20">
-                    Selecione um cliente acima para poder movimentar vasilhames nesta venda.
-                  </p>
-                )}
                 
+                {requiredBottles.length > 0 && (
+                  <div className="mb-4 bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
+                    <p className="text-xs text-amber-500 font-bold uppercase tracking-wider mb-2">Exigidos por esta venda:</p>
+                    <div className="flex flex-col gap-1.5">
+                      {requiredBottles.map(rb => {
+                        const type = bottleTypes.find(t => t.id === rb.bottleTypeId);
+                        return (
+                          <div key={rb.bottleTypeId} className="flex justify-between items-center text-sm">
+                            <span className="text-amber-100 flex items-center gap-1.5">
+                              <Beer className="w-3.5 h-3.5 text-amber-500" />
+                              {type?.name}
+                            </span>
+                            <span className="font-bold text-amber-400 text-base">{rb.quantity}x</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex flex-col md:flex-row gap-2 mb-3">
                   <select
                     id="bottleTypeSelect"
-                    disabled={!selectedCustomer}
-                    className="flex-1 px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500 transition-colors text-xs disabled:opacity-50"
+                    className="flex-1 px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500 transition-colors text-xs"
                   >
-                    <option value="">Selecione o Vasilhame...</option>
+                    <option value="">Selecione o Vasilhame Devolvido...</option>
                     {bottleTypes.map(t => (
                       <option key={t.id} value={t.id}>{t.name}</option>
                     ))}
                   </select>
                   <div className="flex gap-2">
                     <input
-                      id="bottleTakeQtyInput"
-                      type="number"
-                      min="0"
-                      disabled={!selectedCustomer}
-                      placeholder="Levou Qtd"
-                      title="Quantidade que o cliente está levando (Saída da Loja)"
-                      className="w-20 px-2 py-2 bg-slate-950 border border-slate-800 rounded-xl text-rose-400 focus:outline-none focus:border-rose-500 transition-colors text-xs text-center disabled:opacity-50"
-                    />
-                    <input
                       id="bottleReturnQtyInput"
                       type="number"
                       min="0"
-                      disabled={!selectedCustomer}
                       placeholder="Trouxe Qtd"
                       title="Quantidade que o cliente está devolvendo (Entrada na Loja)"
-                      className="w-20 px-2 py-2 bg-slate-950 border border-slate-800 rounded-xl text-emerald-400 focus:outline-none focus:border-emerald-500 transition-colors text-xs text-center disabled:opacity-50"
+                      className="w-24 px-2 py-2 bg-slate-950 border border-slate-800 rounded-xl text-emerald-400 focus:outline-none focus:border-emerald-500 transition-colors text-xs text-center"
                     />
                     <button
                       type="button"
-                      disabled={!selectedCustomer}
                       onClick={() => {
                         const typeSelect = document.getElementById('bottleTypeSelect');
-                        const takeInput = document.getElementById('bottleTakeQtyInput');
                         const returnInput = document.getElementById('bottleReturnQtyInput');
                         const typeId = parseInt(typeSelect.value);
-                        const takeQty = parseInt(takeInput.value) || 0;
                         const returnQty = parseInt(returnInput.value) || 0;
                         
-                        if (typeId && (takeQty > 0 || returnQty > 0)) {
-                          addBottleMovement(typeId, takeQty, returnQty);
+                        if (typeId && returnQty > 0) {
+                          addReturnedBottle(typeId, returnQty);
                           typeSelect.value = '';
-                          takeInput.value = '';
                           returnInput.value = '';
                         }
                       }}
-                      className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-amber-500 rounded-xl transition-colors disabled:opacity-50"
+                      className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-amber-500 rounded-xl transition-colors"
                     >
                       <Plus className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
 
-                {bottleMovements.length > 0 && (
+                {returnedBottles.length > 0 && (
                   <div className="space-y-2">
-                    {bottleMovements.map(bm => {
-                      const type = bottleTypes.find(t => t.id === bm.bottleTypeId);
+                    <p className="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-1 mt-3">Devolvidos agora:</p>
+                    {returnedBottles.map(rb => {
+                      const type = bottleTypes.find(t => t.id === rb.bottleTypeId);
                       return (
-                        <div key={bm.bottleTypeId} className="flex justify-between items-center bg-slate-950/50 p-2.5 rounded-lg border border-slate-800/50">
-                          <div className="flex flex-col">
-                            <span className="text-xs font-bold text-white flex items-center gap-1.5 mb-1">
-                              <Beer className="w-3 h-3 text-amber-500" />
-                              {type?.name}
+                        <div key={rb.bottleTypeId} className="flex justify-between items-center bg-slate-950/50 p-2.5 rounded-lg border border-slate-800/50">
+                          <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                            <Beer className="w-3.5 h-3.5 text-emerald-500" />
+                            {type?.name}
+                          </span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-mono text-xs font-bold">
+                              {rb.quantity}x
                             </span>
-                            <div className="flex gap-3 text-[10px] font-mono">
-                              {bm.takeQty > 0 && (
-                                <span className="text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20">
-                                  LEVOU: {bm.takeQty}
-                                </span>
-                              )}
-                              {bm.returnQty > 0 && (
-                                <span className="text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
-                                  TROUXE: {bm.returnQty}
-                                </span>
-                              )}
-                            </div>
+                            <button
+                              onClick={() => removeReturnedBottle(rb.bottleTypeId)}
+                              className="text-slate-500 hover:text-red-400 p-1"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
-                          <button
-                            onClick={() => removeBottleMovement(bm.bottleTypeId)}
-                            className="text-slate-500 hover:text-red-400 p-1"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
                         </div>
                       )
                     })}

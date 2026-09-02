@@ -8,6 +8,7 @@ import {
 
 export default function Estoque() {
   const [products, setProducts] = useState([]);
+  const [bottleTypes, setBottleTypes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState('');
@@ -27,11 +28,15 @@ export default function Estoque() {
   const loadProducts = async () => {
     try {
       setLoading(true);
-      const data = await api.get('/products');
-      setProducts(data);
+      const [prodData, bottleData] = await Promise.all([
+        api.get('/products'),
+        api.get('/bottles/types')
+      ]);
+      setProducts(prodData);
+      setBottleTypes(bottleData.data || bottleData);
     } catch (err) {
       console.error(err);
-      setError('Erro ao carregar produtos');
+      setError('Erro ao carregar dados do estoque');
     } finally {
       setLoading(false);
     }
@@ -41,18 +46,23 @@ export default function Estoque() {
     setError('');
     setSuccess('');
     try {
-      await api.post('/products', {
+      const payload = {
         name: data.name,
         price: parseFloat(data.price),
         costPrice: parseFloat(data.costPrice || 0),
         stock: parseInt(data.stock) || 0,
         packQuantity: parseInt(data.packQuantity) || 1
-      });
+      };
+      if (data.requiresBottle && data.bottleTypeId) {
+        payload.bottleTypeId = parseInt(data.bottleTypeId);
+      }
+
+      await api.post('/products', payload);
       setSuccess(`Produto "${data.name}" criado com sucesso!`);
       loadProducts();
       closeModal();
     } catch (err) {
-      setError(err.message || 'Erro ao criar produto');
+      setError(err.response?.data?.message || err.message || 'Erro ao criar produto');
     }
   };
 
@@ -60,17 +70,19 @@ export default function Estoque() {
     setError('');
     setSuccess('');
     try {
-      await api.patch(`/products/${selectedProduct.id}`, {
+      const payload = {
         name: data.name,
         price: parseFloat(data.price),
         costPrice: parseFloat(data.costPrice || 0),
-        packQuantity: parseInt(data.packQuantity) || 1
-      });
+        packQuantity: parseInt(data.packQuantity) || 1,
+        bottleTypeId: (data.requiresBottle && data.bottleTypeId) ? parseInt(data.bottleTypeId) : null
+      };
+      await api.patch(`/products/${selectedProduct.id}`, payload);
       setSuccess(`Produto "${data.name}" atualizado com sucesso!`);
       loadProducts();
       closeModal();
     } catch (err) {
-      setError(err.message || 'Erro ao editar produto');
+      setError(err.response?.data?.message || err.message || 'Erro ao editar produto');
     }
   };
 
@@ -118,6 +130,10 @@ export default function Estoque() {
       setValue('price', product.price);
       setValue('costPrice', product.costPrice || 0);
       setValue('packQuantity', product.packQuantity || 1);
+      setValue('requiresBottle', !!product.bottleTypeId);
+      if (product.bottleTypeId) {
+        setValue('bottleTypeId', product.bottleTypeId);
+      }
     }
     
     if (type === 'entry') {
@@ -312,6 +328,7 @@ export default function Estoque() {
                   <input
                     type="number"
                     step="0.01"
+                    min="0.01"
                     {...register('price', { required: 'Preço é obrigatório', min: { value: 0.01, message: 'Preço deve ser maior que zero' } })}
                     placeholder="4.50"
                     className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-650 focus:outline-none focus:border-amber-500 transition-colors text-sm"
@@ -324,6 +341,7 @@ export default function Estoque() {
                   <input
                     type="number"
                     step="0.01"
+                    min="0"
                     {...register('costPrice', { required: 'Custo é obrigatório', min: { value: 0, message: 'Custo não pode ser negativo' } })}
                     placeholder="2.00"
                     className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-650 focus:outline-none focus:border-amber-500 transition-colors text-sm"
@@ -335,22 +353,51 @@ export default function Estoque() {
                   <label className="block text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">Estoque Inicial (Unid.)</label>
                   <input
                     type="number"
-                    {...register('stock')}
+                    min="0"
+                    {...register('stock', { min: { value: 0, message: 'Estoque não pode ser negativo' } })}
                     placeholder="120"
                     className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-655 focus:outline-none focus:border-amber-500 transition-colors text-sm"
                   />
+                  {errors.stock && <span className="text-red-400 text-xs mt-1 block">{errors.stock.message}</span>}
                 </div>
 
                 <div>
                   <label className="block text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">Unidades p/ Fardo</label>
                   <input
                     type="number"
+                    min="1"
                     {...register('packQuantity', { min: { value: 1, message: 'Mínimo de 1 unidade por fardo' } })}
                     placeholder="Ex: 24"
                     defaultValue="1"
                     className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-655 focus:outline-none focus:border-amber-500 transition-colors text-sm"
                   />
                   {errors.packQuantity && <span className="text-red-400 text-xs mt-1 block">{errors.packQuantity.message}</span>}
+                </div>
+              </div>
+
+              <div className="p-3 bg-slate-950/50 rounded-xl border border-slate-800/80 mt-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <input
+                    type="checkbox"
+                    id="requiresBottleCreate"
+                    {...register('requiresBottle')}
+                    className="w-4 h-4 text-amber-500 rounded border-slate-700 bg-slate-900 focus:ring-amber-500"
+                  />
+                  <label htmlFor="requiresBottleCreate" className="text-sm font-semibold text-slate-300">
+                    Este produto exige vasilhame físico
+                  </label>
+                </div>
+                
+                <div className="pl-6">
+                  <select
+                    {...register('bottleTypeId')}
+                    className="w-full px-4 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500 transition-colors text-sm"
+                  >
+                    <option value="">Selecione o tipo de vasilhame...</option>
+                    {bottleTypes.map(t => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -391,6 +438,7 @@ export default function Estoque() {
                   <input
                     type="number"
                     step="0.01"
+                    min="0.01"
                     {...register('price', { required: 'Preço é obrigatório', min: { value: 0.01, message: 'Preço deve ser maior que zero' } })}
                     className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500 transition-colors text-sm"
                   />
@@ -402,6 +450,7 @@ export default function Estoque() {
                   <input
                     type="number"
                     step="0.01"
+                    min="0"
                     {...register('costPrice', { required: 'Custo é obrigatório', min: { value: 0, message: 'Custo não pode ser negativo' } })}
                     className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500 transition-colors text-sm"
                   />
@@ -412,10 +461,37 @@ export default function Estoque() {
                   <label className="block text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">Unidades p/ Fardo</label>
                   <input
                     type="number"
+                    min="1"
                     {...register('packQuantity', { min: { value: 1, message: 'Mínimo de 1 unidade por fardo' } })}
                     className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500 transition-colors text-sm"
                   />
                   {errors.packQuantity && <span className="text-red-400 text-xs mt-1 block">{errors.packQuantity.message}</span>}
+                </div>
+              </div>
+
+              <div className="p-3 bg-slate-950/50 rounded-xl border border-slate-800/80 mt-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <input
+                    type="checkbox"
+                    id="requiresBottleEdit"
+                    {...register('requiresBottle')}
+                    className="w-4 h-4 text-amber-500 rounded border-slate-700 bg-slate-900 focus:ring-amber-500"
+                  />
+                  <label htmlFor="requiresBottleEdit" className="text-sm font-semibold text-slate-300">
+                    Este produto exige vasilhame físico
+                  </label>
+                </div>
+                
+                <div className="pl-6">
+                  <select
+                    {...register('bottleTypeId')}
+                    className="w-full px-4 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500 transition-colors text-sm"
+                  >
+                    <option value="">Selecione o tipo de vasilhame...</option>
+                    {bottleTypes.map(t => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 

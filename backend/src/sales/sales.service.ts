@@ -130,51 +130,81 @@ export class SalesService {
       }
 
       // 6. Registrar Movimentações de Vasilhames
-      if (body.bottleMovements && body.bottleMovements.length > 0) {
-        if (!body.customerId) {
-          throw new BadRequestException('Para movimentar vasilhames na venda, é obrigatório informar o cliente.');
+      const requiredBottles = new Map<number, number>();
+      for (const item of sale.items) {
+        if (item.product.bottleTypeId) {
+          const current = requiredBottles.get(item.product.bottleTypeId) || 0;
+          requiredBottles.set(item.product.bottleTypeId, current + item.quantity);
+        }
+      }
+
+      const returnedBottlesMap = new Map<number, number>();
+      if (body.bottleMovements) {
+        for (const bm of body.bottleMovements) {
+          if (bm.type === 'CUSTOMER_RETURN' && bm.quantity > 0) {
+            const current = returnedBottlesMap.get(bm.bottleTypeId) || 0;
+            returnedBottlesMap.set(bm.bottleTypeId, current + bm.quantity);
+          }
+        }
+      }
+
+      const allBottleTypeIds = new Set([...requiredBottles.keys(), ...returnedBottlesMap.keys()]);
+      
+      for (const typeId of allBottleTypeIds) {
+        const taken = requiredBottles.get(typeId) || 0;
+        const returned = returnedBottlesMap.get(typeId) || 0;
+        const diff = taken - returned;
+
+        if (diff !== 0 && !body.customerId) {
+          throw new BadRequestException('Para ficar com saldo devedor ou credor de vasilhames, é obrigatório selecionar um cliente na venda.');
         }
 
-        for (const bm of body.bottleMovements) {
-          if (bm.quantity <= 0) continue;
-
-          // Determina impacto no estoque da loja
-          const stockChange = bm.type === 'CUSTOMER_RETURN' ? bm.quantity : -bm.quantity;
-          
+        // Se levou > 0, registra a saída
+        if (taken > 0) {
           await tx.bottleType.update({
-            where: { id: bm.bottleTypeId },
-            data: { stock: { increment: stockChange } }
+            where: { id: typeId },
+            data: { stock: { decrement: taken } }
           });
-
-          // Determina impacto no saldo do cliente
-          const balanceChange = bm.type === 'CUSTOMER_BORROW' ? bm.quantity : -bm.quantity;
-
-          await tx.customerBottleBalance.upsert({
-            where: {
-              customerId_bottleTypeId: {
-                customerId: body.customerId,
-                bottleTypeId: bm.bottleTypeId,
-              }
-            },
-            update: {
-              balance: { increment: balanceChange }
-            },
-            create: {
-              customerId: body.customerId,
-              bottleTypeId: bm.bottleTypeId,
-              balance: balanceChange, 
-            }
-          });
-
-          // Registra movimento
+          if (body.customerId) {
+            await tx.customerBottleBalance.upsert({
+              where: { customerId_bottleTypeId: { customerId: body.customerId, bottleTypeId: typeId } },
+              update: { balance: { increment: taken } },
+              create: { customerId: body.customerId, bottleTypeId: typeId, balance: taken }
+            });
+          }
           await tx.bottleMovement.create({
             data: {
-              bottleTypeId: bm.bottleTypeId,
-              quantity: bm.quantity,
-              type: bm.type,
-              customerId: body.customerId,
+              bottleTypeId: typeId,
+              quantity: taken,
+              type: 'CUSTOMER_BORROW',
+              customerId: body.customerId || null,
               saleId: sale.id,
-              description: `Movimentação no PDV (Venda #${sale.id})`
+              description: `Empréstimo automático (Venda #${sale.id})`
+            }
+          });
+        }
+
+        // Se devolveu > 0, registra a entrada
+        if (returned > 0) {
+          await tx.bottleType.update({
+            where: { id: typeId },
+            data: { stock: { increment: returned } }
+          });
+          if (body.customerId) {
+            await tx.customerBottleBalance.upsert({
+              where: { customerId_bottleTypeId: { customerId: body.customerId, bottleTypeId: typeId } },
+              update: { balance: { decrement: returned } },
+              create: { customerId: body.customerId, bottleTypeId: typeId, balance: -returned }
+            });
+          }
+          await tx.bottleMovement.create({
+            data: {
+              bottleTypeId: typeId,
+              quantity: returned,
+              type: 'CUSTOMER_RETURN',
+              customerId: body.customerId || null,
+              saleId: sale.id,
+              description: `Devolução no PDV (Venda #${sale.id})`
             }
           });
         }
