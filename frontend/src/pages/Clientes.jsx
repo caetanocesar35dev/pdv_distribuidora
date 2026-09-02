@@ -4,6 +4,19 @@ import {
   Users, Plus, Search, AlertTriangle, CheckCircle2, DollarSign, Edit, Eye, X, Calendar, ShoppingBag, CreditCard
 } from 'lucide-react';
 
+const formatPhoneMask = (value) => {
+  if (!value) return '';
+  let v = value.replace(/\D/g, '');
+  if (v.length > 11) v = v.substring(0, 11);
+  if (v.length > 2) {
+    v = `(${v.substring(0, 2)}) ${v.substring(2)}`;
+  }
+  if (v.length > 10) {
+    v = `${v.substring(0, 10)}-${v.substring(10)}`;
+  }
+  return v;
+};
+
 export default function Clientes() {
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -45,7 +58,7 @@ export default function Clientes() {
 
   const handleOpenModal = (customer = null) => {
     if (customer) {
-      setFormData({ id: customer.id, name: customer.name, phone: customer.phone || '' });
+      setFormData({ id: customer.id, name: customer.name, phone: formatPhoneMask(customer.phone) });
     } else {
       setFormData({ id: null, name: '', phone: '' });
     }
@@ -286,7 +299,7 @@ export default function Clientes() {
                 filteredCustomers.map((customer) => (
                   <tr key={customer.id} className="hover:bg-slate-800/20 transition-colors">
                     <td className="py-3 px-6 font-medium text-white">{customer.name}</td>
-                    <td className="py-3 px-6 text-slate-400">{customer.phone || '-'}</td>
+                    <td className="py-3 px-6 text-slate-400">{customer.phone ? formatPhoneMask(customer.phone) : '-'}</td>
                     <td className="py-3 px-6">
                       <span className={`font-bold ${customer.balance > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
                         R$ {customer.balance.toFixed(2)}
@@ -351,7 +364,7 @@ export default function Clientes() {
                 <input
                   type="text"
                   value={formData.phone}
-                  onChange={e => setFormData({...formData, phone: e.target.value})}
+                  onChange={e => setFormData({...formData, phone: formatPhoneMask(e.target.value)})}
                   className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500 transition-all text-sm"
                   placeholder="(00) 00000-0000"
                 />
@@ -464,7 +477,7 @@ export default function Clientes() {
                     {customerDetail.name}
                   </h2>
                   <div className="flex gap-4 mt-2 text-xs text-slate-400">
-                    <span>Telefone: {customerDetail.phone || 'Não informado'}</span>
+                    <span>Telefone: {customerDetail.phone ? formatPhoneMask(customerDetail.phone) : 'Não informado'}</span>
                     <span>•</span>
                     <span>
                       Saldo Devedor: <strong className={customerDetail.balance > 0 ? 'text-rose-400 font-bold' : 'text-emerald-400 font-bold'}>

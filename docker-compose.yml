@@ -40,5 +40,18 @@ services:
       - backend
     restart: always
 
+  backup:
+    build:
+      context: ./backup
+      dockerfile: Dockerfile
+    container_name: distribuidora_backup
+    environment:
+      - DATABASE_URL=postgresql://u_postgresql_distribuidora:99546350julio@postgres:5432/db_distribuidora
+    volumes:
+      - ./rclone:/rclone
+    depends_on:
+      - postgres
+    restart: always
+
 volumes:
   pgdata:

@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
 import { 
-  Coffee, Plus, X, Search, ShoppingCart, Trash2, CheckCircle2, User, CreditCard, DollarSign, Users, AlertCircle 
+  Coffee, Plus, X, Search, ShoppingCart, Trash2, CheckCircle2, User, CreditCard, DollarSign, Users, AlertCircle, Printer, MessageCircle
 } from 'lucide-react';
+import html2canvas from 'html2canvas';
 
 export default function Comandas() {
   const [tabs, setTabs] = useState([]);
@@ -26,6 +27,8 @@ export default function Comandas() {
   const [paymentMethod, setPaymentMethod] = useState('MONEY');
   const [discount, setDiscount] = useState('');
   const [isFinishing, setIsFinishing] = useState(false);
+  const [saleResult, setSaleResult] = useState(null);
+  const [whatsappNumber, setWhatsappNumber] = useState('');
 
   const barcodeInputRef = useRef(null);
 
@@ -170,8 +173,22 @@ export default function Comandas() {
          payload.customerId = Number(newTabCustomer);
       }
 
-      await api.post(`/command-tabs/${activeTab.id}/close`, payload);
+      const sale = await api.post(`/command-tabs/${activeTab.id}/close`, payload);
       
+      const fullSale = {
+         ...sale,
+         items: activeTab.items.map(i => ({
+             product: i.product,
+             quantity: i.quantity,
+             price: i.price
+         }))
+      };
+      setSaleResult(fullSale);
+      
+      const targetCustomerId = payload.customerId || activeTab.customerId;
+      const customerObj = customers.find(c => c.id === Number(targetCustomerId));
+      setWhatsappNumber(customerObj?.phone || '');
+
       // Remove a comanda da lista, fecha os modais
       setTabs(tabs.filter(t => t.id !== activeTab.id));
       setIsPaymentModalOpen(false);
@@ -185,6 +202,125 @@ export default function Comandas() {
     } finally {
       setIsFinishing(true); // Ocultar spinner 
       setIsFinishing(false);
+    }
+  };
+
+  const generateReceiptHTML = () => {
+    if (!saleResult) return '';
+    const cnpj = import.meta.env.VITE_COMPANY_CNPJ || '00.000.000/0001-00';
+    let itemsHTML = saleResult.items.map(item => `
+      <tr>
+        <td style="padding:2px 0">${item.product.name.substring(0, 20)}</td>
+        <td style="padding:2px 0;text-align:center">${item.quantity}</td>
+        <td style="padding:2px 0;text-align:right">R$ ${item.price.toFixed(2)}</td>
+        <td style="padding:2px 0;text-align:right">R$ ${(item.price * item.quantity).toFixed(2)}</td>
+      </tr>
+    `).join('');
+
+    return `
+      <div style="width:72mm;font-family:monospace;font-size:12px;color:#000;padding:8px;">
+        <div style="text-align:center;font-weight:bold;font-size:14px;margin-bottom:4px;">DISTRIBUIDORA DE BEBIDAS</div>
+        <div style="text-align:center;margin-bottom:8px;">CNPJ: ${cnpj}</div>
+        <hr style="border:none;border-top:1px dashed #000;margin:4px 0;">
+        <div>COMPROVANTE NÃO FISCAL</div>
+        <div>Pedido: #${saleResult.id}</div>
+        <div>Data/Hora: ${new Date(saleResult.createdAt).toLocaleString('pt-BR')}</div>
+        <hr style="border:none;border-top:1px dashed #000;margin:4px 0;">
+        <table style="width:100%;font-size:11px;border-collapse:collapse;">
+          <thead>
+            <tr style="border-bottom:1px solid #000;">
+              <th style="text-align:left;padding:2px 0;">Item</th>
+              <th style="text-align:center;padding:2px 0;">Qtd</th>
+              <th style="text-align:right;padding:2px 0;">Unit</th>
+              <th style="text-align:right;padding:2px 0;">Total</th>
+            </tr>
+          </thead>
+          <tbody>${itemsHTML}</tbody>
+        </table>
+        <hr style="border:none;border-top:1px dashed #000;margin:4px 0;">
+        ${saleResult.discount > 0 ? `<div style="display:flex;justify-content:space-between;"><span>Desconto:</span><span>- R$ ${saleResult.discount.toFixed(2)}</span></div>` : ''}
+        <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:14px;">
+          <span>TOTAL:</span>
+          <span>R$ ${saleResult.total.toFixed(2)}</span>
+        </div>
+        <div>Forma Pgto: ${translatePayment(saleResult.paymentMethod)}</div>
+        <hr style="border:none;border-top:1px dashed #000;margin:8px 0;">
+        <div style="text-align:center;margin-top:8px;">Obrigado pela preferência!</div>
+        <div style="text-align:center;font-size:8px;">Sistema PDV Distribuidora</div>
+      </div>
+    `;
+  };
+
+  const printReceipt = () => {
+    const receiptHTML = generateReceiptHTML();
+    const printWindow = window.open('', '_blank', 'width=400,height=600');
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Comprovante</title>
+          <style>
+            body { margin: 0; padding: 0; }
+            @page { size: 80mm auto; margin: 0; }
+          </style>
+        </head>
+        <body>${receiptHTML}</body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 300);
+  };
+
+  const formatPhoneMask = (value) => {
+    let v = value.replace(/\D/g, '');
+    if (v.length > 11) v = v.substring(0, 11);
+    if (v.length > 2) {
+      v = `(${v.substring(0, 2)}) ${v.substring(2)}`;
+    }
+    if (v.length > 10) {
+      v = `${v.substring(0, 10)}-${v.substring(10)}`;
+    }
+    return v;
+  };
+
+  const handleSendWhatsapp = async () => {
+    if (!whatsappNumber) return;
+    
+    const tempDiv = document.createElement('div');
+    tempDiv.style.position = 'absolute';
+    tempDiv.style.left = '-9999px';
+    tempDiv.style.top = '0';
+    tempDiv.style.background = 'white';
+    tempDiv.innerHTML = generateReceiptHTML();
+    document.body.appendChild(tempDiv);
+
+    try {
+      const canvas = await html2canvas(tempDiv, { scale: 2, backgroundColor: '#ffffff' });
+      document.body.removeChild(tempDiv);
+      
+      canvas.toBlob(async (blob) => {
+        if (!blob) return;
+        try {
+          const item = new ClipboardItem({ 'image/png': blob });
+          await navigator.clipboard.write([item]);
+          alert("Comprovante copiado como IMAGEM!\n\nNa próxima tela, aperte Ctrl+V (ou colar) na conversa do WhatsApp para enviar.");
+          
+          const formattedNumber = whatsappNumber.replace(/\D/g, ''); 
+          const finalNumber = formattedNumber.startsWith('55') ? formattedNumber : `55${formattedNumber}`;
+          
+          window.open(`https://wa.me/${finalNumber}`, '_blank');
+        } catch (err) {
+          console.error("Erro ao copiar imagem:", err);
+          alert("Não foi possível copiar a imagem automaticamente. Verifique as permissões do navegador.");
+        }
+      });
+    } catch (err) {
+      document.body.removeChild(tempDiv);
+      console.error(err);
+      alert("Erro ao processar imagem.");
     }
   };
 
@@ -209,7 +345,6 @@ export default function Comandas() {
 
   return (
     <div className="flex-1 p-6 font-sans text-white h-[calc(100vh-64px)] flex flex-col gap-6 overflow-hidden">
-      
       {/* Header */}
       <div className="flex justify-between items-center shrink-0">
         <div>
@@ -588,6 +723,101 @@ export default function Comandas() {
         </div>
       )}
 
+
+      
+      {/* Modal de Comprovante de Sucesso */}
+      {saleResult && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-2xl shadow-2xl p-6 relative">
+            <button
+              onClick={() => setSaleResult(null)}
+              className="absolute right-4 top-4 text-slate-500 hover:text-white p-1 rounded-lg hover:bg-slate-800"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex flex-col items-center text-center">
+              <div className="w-12 h-12 bg-emerald-500/10 rounded-full flex items-center justify-center mb-4">
+                <CheckCircle2 className="w-7 h-7 text-emerald-500" />
+              </div>
+              <h3 className="text-lg font-bold text-white">Conta Concluída!</h3>
+              <p className="text-slate-400 text-xs mt-1">Pedido registrado com sucesso.</p>
+
+              {/* Box de comprovante resumido no modal */}
+              <div className="w-full mt-6 bg-slate-950 border border-slate-850 p-4 rounded-xl text-left font-mono text-xs text-slate-300 space-y-2">
+                <div className="flex justify-between border-b border-slate-800 pb-2">
+                  <span>Pedido:</span>
+                  <span className="text-white font-bold">#{saleResult.id}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Data/Hora:</span>
+                  <span>{new Date(saleResult.createdAt).toLocaleString('pt-BR')}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Pagamento:</span>
+                  <span>{translatePayment(saleResult.paymentMethod)}</span>
+                </div>
+                <div className="border-b border-slate-800 pb-1"></div>
+                <div className="space-y-1">
+                  {saleResult.items.map((item, idx) => (
+                    <div key={idx} className="flex justify-between text-slate-450">
+                      <span>{item.product.name.substring(0, 20)} x{item.quantity}</span>
+                      <span>R$ {(item.price * item.quantity).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+                {saleResult.discount > 0 && (
+                  <div className="flex justify-between text-emerald-400 text-xs pt-1 border-t border-slate-800/60">
+                    <span>Desconto:</span>
+                    <span>- R$ {saleResult.discount.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="border-t border-slate-800 pt-2 flex justify-between font-bold text-amber-500 text-sm">
+                  <span>Total:</span>
+                  <span>R$ {saleResult.total.toFixed(2)}</span>
+                </div>
+              </div>
+
+              <div className="w-full mt-4 flex flex-col gap-2 bg-slate-950 p-3 rounded-xl border border-slate-800">
+                <label className="text-xs text-slate-400 font-semibold text-left">Enviar Comprovante (WhatsApp)</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Ex: (31) 99999-9999"
+                    value={formatPhoneMask(whatsappNumber)}
+                    onChange={(e) => setWhatsappNumber(e.target.value)}
+                    className="flex-1 bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500"
+                  />
+                  <button
+                    onClick={handleSendWhatsapp}
+                    disabled={!whatsappNumber || whatsappNumber.replace(/\D/g, '').length < 10}
+                    className="px-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-lg text-xs font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors disabled:opacity-50"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    Enviar
+                  </button>
+                </div>
+              </div>
+
+              <div className="w-full grid grid-cols-2 gap-3 mt-4">
+                <button
+                  onClick={printReceipt}
+                  className="py-2.5 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                >
+                  <Printer className="w-4 h-4" />
+                  Imprimir Comprovante
+                </button>
+                <button
+                  onClick={() => setSaleResult(null)}
+                  className="py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-xs font-bold flex items-center justify-center cursor-pointer transition-colors"
+                >
+                  Continuar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
