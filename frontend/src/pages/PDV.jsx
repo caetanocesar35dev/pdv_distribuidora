@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import {
   Search, Plus, Minus, Trash2, ShoppingCart,
-  DollarSign, CheckCircle2, AlertCircle, Printer, X, CreditCard, Users
+  DollarSign, CheckCircle2, AlertCircle, Printer, X, CreditCard, Users, MessageCircle
 } from 'lucide-react';
+import html2canvas from 'html2canvas';
 
 export default function PDV() {
   const navigate = useNavigate();
@@ -22,6 +23,7 @@ export default function PDV() {
   const [error, setError] = useState('');
   const [discount, setDiscount] = useState('');
   const [isPackSale, setIsPackSale] = useState(false);
+  const [whatsappNumber, setWhatsappNumber] = useState('');
 
   const barcodeInputRef = useRef(null);
 
@@ -224,6 +226,9 @@ export default function PDV() {
       });
 
       setSaleResult(res);
+      const customerObj = customers.find(c => c.id === Number(selectedCustomer));
+      setWhatsappNumber(customerObj?.phone || '');
+      
       setCart([]);
       setSelectedCustomer('');
       setDiscount('');
@@ -235,8 +240,124 @@ export default function PDV() {
     }
   };
 
+  const generateReceiptHTML = () => {
+    if (!saleResult) return '';
+    const cnpj = import.meta.env.VITE_COMPANY_CNPJ || '00.000.000/0001-00';
+    let itemsHTML = saleResult.items.map(item => `
+      <tr>
+        <td style="padding:2px 0">${item.product.name.substring(0, 20)}</td>
+        <td style="padding:2px 0;text-align:center">${item.quantity}</td>
+        <td style="padding:2px 0;text-align:right">R$ ${item.price.toFixed(2)}</td>
+        <td style="padding:2px 0;text-align:right">R$ ${(item.price * item.quantity).toFixed(2)}</td>
+      </tr>
+    `).join('');
+
+    return `
+      <div style="width:72mm;font-family:monospace;font-size:12px;color:#000;padding:8px;">
+        <div style="text-align:center;font-weight:bold;font-size:14px;margin-bottom:4px;">DISTRIBUIDORA DE BEBIDAS</div>
+        <div style="text-align:center;margin-bottom:8px;">CNPJ: ${cnpj}</div>
+        <hr style="border:none;border-top:1px dashed #000;margin:4px 0;">
+        <div>COMPROVANTE NÃO FISCAL</div>
+        <div>Pedido: #${saleResult.id}</div>
+        <div>Data/Hora: ${new Date(saleResult.createdAt).toLocaleString('pt-BR')}</div>
+        <hr style="border:none;border-top:1px dashed #000;margin:4px 0;">
+        <table style="width:100%;font-size:11px;border-collapse:collapse;">
+          <thead>
+            <tr style="border-bottom:1px solid #000;">
+              <th style="text-align:left;padding:2px 0;">Item</th>
+              <th style="text-align:center;padding:2px 0;">Qtd</th>
+              <th style="text-align:right;padding:2px 0;">Unit</th>
+              <th style="text-align:right;padding:2px 0;">Total</th>
+            </tr>
+          </thead>
+          <tbody>${itemsHTML}</tbody>
+        </table>
+        <hr style="border:none;border-top:1px dashed #000;margin:4px 0;">
+        ${saleResult.discount > 0 ? `<div style="display:flex;justify-content:space-between;"><span>Desconto:</span><span>- R$ ${saleResult.discount.toFixed(2)}</span></div>` : ''}
+        <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:14px;">
+          <span>TOTAL:</span>
+          <span>R$ ${saleResult.total.toFixed(2)}</span>
+        </div>
+        <div>Forma Pgto: ${translatePayment(saleResult.paymentMethod)}</div>
+        <hr style="border:none;border-top:1px dashed #000;margin:8px 0;">
+        <div style="text-align:center;margin-top:8px;">Obrigado pela preferência!</div>
+        <div style="text-align:center;font-size:8px;">Sistema PDV Distribuidora</div>
+      </div>
+    `;
+  };
+
   const printReceipt = () => {
-    window.print();
+    const receiptHTML = generateReceiptHTML();
+    const printWindow = window.open('', '_blank', 'width=400,height=600');
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Comprovante</title>
+          <style>
+            body { margin: 0; padding: 0; }
+            @page { size: 80mm auto; margin: 0; }
+          </style>
+        </head>
+        <body>${receiptHTML}</body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 300);
+  };
+
+  const formatPhoneMask = (value) => {
+    let v = value.replace(/\D/g, '');
+    if (v.length > 11) v = v.substring(0, 11);
+    if (v.length > 2) {
+      v = `(${v.substring(0, 2)}) ${v.substring(2)}`;
+    }
+    if (v.length > 10) {
+      v = `${v.substring(0, 10)}-${v.substring(10)}`;
+    }
+    return v;
+  };
+
+  const handleSendWhatsapp = async () => {
+    if (!whatsappNumber) return;
+    
+    // Cria um elemento temporário visível fora da tela para o html2canvas capturar
+    const tempDiv = document.createElement('div');
+    tempDiv.style.position = 'absolute';
+    tempDiv.style.left = '-9999px';
+    tempDiv.style.top = '0';
+    tempDiv.style.background = 'white';
+    tempDiv.innerHTML = generateReceiptHTML();
+    document.body.appendChild(tempDiv);
+
+    try {
+      const canvas = await html2canvas(tempDiv, { scale: 2, backgroundColor: '#ffffff' });
+      document.body.removeChild(tempDiv);
+      
+      canvas.toBlob(async (blob) => {
+        if (!blob) return;
+        try {
+          const item = new ClipboardItem({ 'image/png': blob });
+          await navigator.clipboard.write([item]);
+          alert("Comprovante copiado como IMAGEM!\n\nNa próxima tela, aperte Ctrl+V (ou colar) na conversa do WhatsApp para enviar.");
+          
+          const formattedNumber = whatsappNumber.replace(/\D/g, ''); 
+          const finalNumber = formattedNumber.startsWith('55') ? formattedNumber : `55${formattedNumber}`;
+          
+          window.open(`https://wa.me/${finalNumber}`, '_blank');
+        } catch (err) {
+          console.error("Erro ao copiar imagem:", err);
+          alert("Não foi possível copiar a imagem automaticamente. Verifique as permissões do navegador.");
+        }
+      });
+    } catch (err) {
+      document.body.removeChild(tempDiv);
+      console.error(err);
+      alert("Erro ao processar imagem.");
+    }
   };
 
   const translatePayment = (method) => {
@@ -284,52 +405,8 @@ export default function PDV() {
 
   return (
     <div className="flex-1 p-6 font-sans text-white h-[calc(100vh-64px)] flex flex-col gap-6 overflow-hidden">
-      {/* Impressão do Comprovante Não-Fiscal (Oculto em tela, exibido no Print) */}
-      {saleResult && (
-        <div className="hidden print:block print:p-4 text-black bg-white w-[80mm] text-xs font-mono">
-          <div className="text-center font-bold text-sm mb-2">DISTRIBUIDORA DE BEBIDAS</div>
-          <div className="text-center mb-2">CNPJ: 00.000.000/0001-00</div>
-          <div className="border-b border-dashed border-black my-1"></div>
-          <div>COMPROVANTE NÃO FISCAL</div>
-          <div>Pedido: #{saleResult.id}</div>
-          <div>Data/Hora: {new Date(saleResult.createdAt).toLocaleString('pt-BR')}</div>
-          <div className="border-b border-dashed border-black my-1"></div>
-
-          <table className="w-full text-xs text-left">
-            <thead>
-              <tr className="border-b border-black">
-                <th className="py-1">Item</th>
-                <th className="py-1 text-center">Qtd</th>
-                <th className="py-1 text-right">Unit</th>
-                <th className="py-1 text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {saleResult.items.map((item, idx) => (
-                <tr key={idx}>
-                  <td className="py-1">{item.product.name.substring(0, 18)}</td>
-                  <td className="py-1 text-center">{item.quantity}</td>
-                  <td className="py-1 text-right">R$ {item.price.toFixed(2)}</td>
-                  <td className="py-1 text-right">R$ {(item.price * item.quantity).toFixed(2)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <div className="border-b border-dashed border-black my-1"></div>
-          <div className="flex justify-between font-bold text-sm">
-            <span>TOTAL:</span>
-            <span>R$ {saleResult.total.toFixed(2)}</span>
-          </div>
-          <div>Forma Pgto: {translatePayment(saleResult.paymentMethod)}</div>
-          <div className="border-b border-dashed border-black my-2"></div>
-          <div className="text-center mt-4">Obrigado pela preferência!</div>
-          <div className="text-center text-[8px]">Sistema PDV Distribuidora</div>
-        </div>
-      )}
-
       {/* Título e Status */}
-      <div className="flex justify-between items-center shrink-0">
+        <div className="flex justify-between items-center shrink-0">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <ShoppingCart className="text-amber-500 w-7 h-7" />
@@ -677,7 +754,28 @@ export default function PDV() {
                 </div>
               </div>
 
-              <div className="w-full grid grid-cols-2 gap-3 mt-6">
+              <div className="w-full mt-4 flex flex-col gap-2 bg-slate-950 p-3 rounded-xl border border-slate-800">
+                <label className="text-xs text-slate-400 font-semibold text-left">Enviar Comprovante (WhatsApp)</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Ex: (31) 99999-9999"
+                    value={formatPhoneMask(whatsappNumber)}
+                    onChange={(e) => setWhatsappNumber(e.target.value)}
+                    className="flex-1 bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-emerald-500"
+                  />
+                  <button
+                    onClick={handleSendWhatsapp}
+                    disabled={!whatsappNumber || whatsappNumber.replace(/\D/g, '').length < 10}
+                    className="px-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-lg text-xs font-bold flex items-center justify-center gap-1 cursor-pointer transition-colors disabled:opacity-50"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    Enviar
+                  </button>
+                </div>
+              </div>
+
+              <div className="w-full grid grid-cols-2 gap-3 mt-4">
                 <button
                   onClick={printReceipt}
                   className="py-2.5 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 cursor-pointer transition-colors"
