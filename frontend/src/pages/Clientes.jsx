@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { 
-  Users, Plus, Search, AlertTriangle, CheckCircle2, DollarSign, Edit, Eye, X, Calendar, ShoppingBag, CreditCard
+import {
+  Users, Plus, Search, AlertTriangle, CheckCircle2, DollarSign, Edit, Eye, X, Calendar, ShoppingBag, CreditCard, Beer, ArrowRightLeft
 } from 'lucide-react';
 
 const formatPhoneMask = (value) => {
@@ -22,7 +22,7 @@ export default function Clientes() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [tabFilter, setTabFilter] = useState('ALL'); // 'ALL' | 'DEBT' | 'CLEAN'
-  
+
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -145,8 +145,8 @@ export default function Clientes() {
 
   // Filtragem combinada (Busca + Aba de filtro)
   const filteredCustomers = customers.filter(c => {
-    const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          (c.phone && c.phone.includes(searchQuery));
+    const matchesSearch = c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (c.phone && c.phone.includes(searchQuery));
     if (!matchesSearch) return false;
 
     if (tabFilter === 'DEBT') return c.balance > 0;
@@ -160,7 +160,7 @@ export default function Clientes() {
 
   return (
     <div className="flex-1 p-6 font-sans text-white h-[calc(100vh-64px)] overflow-y-auto space-y-6">
-      
+
       {/* Cabeçalho */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
         <div>
@@ -170,7 +170,7 @@ export default function Clientes() {
           </h1>
           <p className="text-slate-400 text-xs mt-1">Gerencie cadastros, limites de fiado e histórico de compras</p>
         </div>
-        <button 
+        <button
           onClick={() => handleOpenModal()}
           className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-5 py-2.5 rounded-xl text-sm transition-all shadow-lg shadow-amber-500/20 active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
         >
@@ -229,7 +229,7 @@ export default function Clientes() {
       {/* Filtros e Busca */}
       <div className="max-w-5xl mx-auto bg-slate-900/40 border border-slate-800 p-5 rounded-2xl flex flex-col gap-5">
         <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-          
+
           {/* Busca por Nome ou Telefone */}
           <div className="relative flex-1 w-full">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-5 h-5" />
@@ -246,25 +246,22 @@ export default function Clientes() {
           <div className="flex bg-slate-950 p-1 border border-slate-800 rounded-xl shrink-0 w-full sm:w-auto">
             <button
               onClick={() => setTabFilter('ALL')}
-              className={`flex-1 sm:flex-none px-4 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
-                tabFilter === 'ALL' ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'
-              }`}
+              className={`flex-1 sm:flex-none px-4 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer ${tabFilter === 'ALL' ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'
+                }`}
             >
               Todos ({customers.length})
             </button>
             <button
               onClick={() => setTabFilter('DEBT')}
-              className={`flex-1 sm:flex-none px-4 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
-                tabFilter === 'DEBT' ? 'bg-rose-500 text-white' : 'text-slate-400 hover:text-white'
-              }`}
+              className={`flex-1 sm:flex-none px-4 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer ${tabFilter === 'DEBT' ? 'bg-rose-500 text-white' : 'text-slate-400 hover:text-white'
+                }`}
             >
               Com Débito ({debtCount})
             </button>
             <button
               onClick={() => setTabFilter('CLEAN')}
-              className={`flex-1 sm:flex-none px-4 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
-                tabFilter === 'CLEAN' ? 'bg-emerald-500 text-slate-950' : 'text-slate-400 hover:text-white'
-              }`}
+              className={`flex-1 sm:flex-none px-4 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer ${tabFilter === 'CLEAN' ? 'bg-emerald-500 text-slate-950' : 'text-slate-400 hover:text-white'
+                }`}
             >
               Em Dia ({cleanCount})
             </button>
@@ -278,20 +275,21 @@ export default function Clientes() {
               <tr className="bg-slate-900/80 border-b border-slate-800">
                 <th className="py-4 px-6 font-semibold text-sm text-slate-300">Cliente</th>
                 <th className="py-4 px-6 font-semibold text-sm text-slate-300">Telefone</th>
-                <th className="py-4 px-6 font-semibold text-sm text-slate-300">Saldo Devedor</th>
+                <th className="py-4 px-6 font-semibold text-sm text-slate-300">Fiado (R$)</th>
+                <th className="py-4 px-6 font-semibold text-sm text-slate-300">Vasilhames Devidos</th>
                 <th className="py-4 px-6 font-semibold text-sm text-slate-300 text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-sm">
               {loading ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
                     Carregando clientes...
                   </td>
                 </tr>
               ) : filteredCustomers.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
                     Nenhum cliente encontrado.
                   </td>
                 </tr>
@@ -300,10 +298,22 @@ export default function Clientes() {
                   <tr key={customer.id} className="hover:bg-slate-800/20 transition-colors">
                     <td className="py-3 px-6 font-medium text-white">{customer.name}</td>
                     <td className="py-3 px-6 text-slate-400">{customer.phone ? formatPhoneMask(customer.phone) : '-'}</td>
+                    <td className="py-3 px-6 font-bold text-rose-400">
+                      {customer.balance > 0 ? `R$ ${customer.balance.toFixed(2)}` : '-'}
+                    </td>
                     <td className="py-3 px-6">
-                      <span className={`font-bold ${customer.balance > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                        R$ {customer.balance.toFixed(2)}
-                      </span>
+                      {customer.bottleBalances && customer.bottleBalances.filter(b => b.balance > 0).length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {customer.bottleBalances.filter(b => b.balance > 0).map(b => (
+                            <span key={b.id} className="px-2 py-0.5 bg-rose-500/10 border border-rose-500/20 text-rose-400 text-[10px] font-bold rounded flex items-center gap-1">
+                              <Beer className="w-3 h-3" />
+                              {b.balance}x {b.bottleType.name}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-slate-500">-</span>
+                      )}
                     </td>
                     <td className="py-3 px-6 flex justify-end gap-2">
                       <button
@@ -345,7 +355,7 @@ export default function Clientes() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 w-full max-w-md shadow-2xl">
             <h2 className="text-xl font-bold mb-4">{formData.id ? 'Editar Cliente' : 'Novo Cliente'}</h2>
-            
+
             <form onSubmit={handleSaveCustomer} className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-slate-300 mb-1.5">Nome do Cliente</label>
@@ -353,7 +363,7 @@ export default function Clientes() {
                   required
                   type="text"
                   value={formData.name}
-                  onChange={e => setFormData({...formData, name: e.target.value})}
+                  onChange={e => setFormData({ ...formData, name: e.target.value })}
                   className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500 transition-all text-sm"
                   placeholder="Ex: João Silva"
                 />
@@ -364,12 +374,12 @@ export default function Clientes() {
                 <input
                   type="text"
                   value={formData.phone}
-                  onChange={e => setFormData({...formData, phone: formatPhoneMask(e.target.value)})}
+                  onChange={e => setFormData({ ...formData, phone: formatPhoneMask(e.target.value) })}
                   className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500 transition-all text-sm"
                   placeholder="(00) 00000-0000"
                 />
               </div>
-              
+
               <div className="pt-4 flex gap-3">
                 <button
                   type="button"
@@ -401,7 +411,7 @@ export default function Clientes() {
             <p className="text-slate-400 text-xs mb-4">
               Cliente: <strong className="text-white">{payData.name}</strong> • Dívida Total: <strong className="text-rose-400">R$ {payData.balance.toFixed(2)}</strong>
             </p>
-            
+
             <form onSubmit={handlePayDebt} className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-slate-300 mb-1.5">Valor a Pagar (R$)</label>
@@ -412,7 +422,7 @@ export default function Clientes() {
                   min="0.01"
                   max={payData.balance}
                   value={payData.amount}
-                  onChange={e => setPayData({...payData, amount: e.target.value})}
+                  onChange={e => setPayData({ ...payData, amount: e.target.value })}
                   className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500 transition-all text-lg font-bold"
                 />
               </div>
@@ -421,7 +431,7 @@ export default function Clientes() {
                 <label className="block text-sm font-semibold text-slate-300 mb-1.5">Forma de Pagamento</label>
                 <select
                   value={payData.paymentMethod}
-                  onChange={e => setPayData({...payData, paymentMethod: e.target.value})}
+                  onChange={e => setPayData({ ...payData, paymentMethod: e.target.value })}
                   className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500 transition-all text-sm"
                 >
                   <option value="MONEY">Dinheiro</option>
@@ -431,7 +441,7 @@ export default function Clientes() {
                 </select>
                 <p className="text-[10px] text-slate-500 mt-1">Este valor entrará no caixa aberto atualmente.</p>
               </div>
-              
+
               <div className="pt-4 flex gap-3">
                 <button
                   type="button"
@@ -469,7 +479,7 @@ export default function Clientes() {
               </div>
             ) : (
               <div className="flex flex-col gap-6 overflow-hidden min-h-0">
-                
+
                 {/* Topo do Cliente */}
                 <div className="border-b border-slate-800 pb-4">
                   <h2 className="text-xl font-bold text-white flex items-center gap-2">
@@ -489,7 +499,7 @@ export default function Clientes() {
 
                 {/* Lista de Vendas e Pagamentos */}
                 <div className="flex-1 overflow-y-auto space-y-6 min-h-0 pr-1">
-                  
+
                   {/* Seção Vendas */}
                   <div>
                     <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-2">
@@ -568,16 +578,49 @@ export default function Clientes() {
                         ))}
                       </div>
                     )}
+                    {/* Seção Vasilhames */}
+                    <div>
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-2">
+                        <Beer className="w-4 h-4 text-amber-500" />
+                        Histórico de Vasilhames ({customerDetail.bottleMovements?.length || 0})
+                      </h3>
+
+                      {!customerDetail.bottleMovements || customerDetail.bottleMovements.length === 0 ? (
+                        <p className="text-xs text-slate-500 italic bg-slate-950 p-4 rounded-xl border border-slate-850">
+                          Nenhuma movimentação de vasilhame registrada.
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {customerDetail.bottleMovements.map(mov => {
+                            const isReturn = mov.type === 'CUSTOMER_RETURN';
+                            return (
+                              <div key={mov.id} className="bg-slate-950/70 border border-slate-800 p-3 rounded-xl flex flex-col gap-1 text-xs">
+                                <div className="flex justify-between items-center">
+                                  <span className="font-bold flex items-center gap-1.5 text-white">
+                                    <ArrowRightLeft className={`w-3 h-3 ${isReturn ? 'text-emerald-400' : 'text-rose-400'}`} />
+                                    {isReturn ? 'Devolução' : 'Empréstimo'}: {mov.quantity}x {mov.bottleType.name}
+                                  </span>
+                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${isReturn ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}`}>
+                                    {isReturn ? 'SALDO -' : 'SALDO +'}
+                                  </span>
+                                </div>
+                                <span className="text-slate-500 text-[11px]">
+                                  {new Date(mov.createdAt).toLocaleString('pt-BR')} {mov.saleId ? `• Venda #${mov.saleId}` : ''}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
                   </div>
-
                 </div>
-
               </div>
             )}
           </div>
         </div>
       )}
-
     </div>
   );
 }

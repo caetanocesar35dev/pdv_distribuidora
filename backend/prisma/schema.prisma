@@ -81,6 +81,7 @@ model Sale {
   commandTab    CommandTab?   @relation(fields: [commandTabId], references: [id])
   
   items         SaleItem[]
+  bottleMovements BottleMovement[]
 }
 
 enum PaymentMethod {
@@ -153,6 +154,8 @@ model Customer {
   sales     Sale[]
   payments  CustomerPayment[]
   commandTabs CommandTab[]
+  bottleBalances CustomerBottleBalance[]
+  bottleMovements BottleMovement[]
 }
 
 /// Histórico de pagamentos de dívidas (fiado) feitos pelos clientes
@@ -198,4 +201,56 @@ model CommandItem {
   
   commandTab    CommandTab @relation(fields: [commandTabId], references: [id])
   product       Product    @relation(fields: [productId], references: [id])
+}
+
+/// Representa o tipo de vasilhame físico (Litrão, 600ml, Caixa/Engradado, etc) e o estoque da loja.
+model BottleType {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  stock     Int      @default(0) // Quantidade de vasilhames físicos na loja
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  customerBalances CustomerBottleBalance[]
+  movements        BottleMovement[]
+}
+
+/// Controla quantos vasilhames de um tipo específico um cliente pegou emprestado (saldo devedor do cliente em garrafas).
+model CustomerBottleBalance {
+  id           Int        @id @default(autoincrement())
+  customerId   Int
+  bottleTypeId Int
+  balance      Int        @default(0) // Quantidade que o cliente deve à loja
+  updatedAt    DateTime   @updatedAt
+
+  customer     Customer   @relation(fields: [customerId], references: [id])
+  bottleType   BottleType @relation(fields: [bottleTypeId], references: [id])
+
+  @@unique([customerId, bottleTypeId])
+}
+
+/// Histórico de movimentações de vasilhames (clientes pegando ou devolvendo, loja enviando pro fornecedor, etc).
+model BottleMovement {
+  id           Int        @id @default(autoincrement())
+  bottleTypeId Int
+  quantity     Int        // Positivo (entra na loja/devolve) ou negativo (sai da loja/empresta)
+  type         BottleMovementType
+  description  String?
+  createdAt    DateTime   @default(now())
+
+  customerId   Int?       // Se a movimentação foi com um cliente
+  customer     Customer?  @relation(fields: [customerId], references: [id])
+
+  saleId       Int?       // Se a movimentação ocorreu durante uma venda
+  sale         Sale?      @relation(fields: [saleId], references: [id])
+
+  bottleType   BottleType @relation(fields: [bottleTypeId], references: [id])
+}
+
+enum BottleMovementType {
+  CUSTOMER_BORROW   // Cliente pegou vasilhame emprestado (Sai do estoque da loja, aumenta o saldo devedor do cliente)
+  CUSTOMER_RETURN   // Cliente devolveu vasilhame (Entra no estoque da loja, reduz o saldo devedor do cliente)
+  SUPPLIER_SEND     // Loja enviou vasilhame para fornecedor (Sai do estoque da loja)
+  SUPPLIER_RECEIVE  // Loja recebeu vasilhame do fornecedor (Entra no estoque da loja)
+  MANUAL_ADJUSTMENT // Ajuste manual de estoque
 }

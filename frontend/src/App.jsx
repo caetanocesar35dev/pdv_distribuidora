@@ -14,6 +14,7 @@ import Comandas from './pages/Comandas';
 import Clientes from './pages/Clientes';
 import Dashboard from './pages/Dashboard';
 import Usuarios from './pages/Usuarios';
+import Vasilhames from './pages/Vasilhames';
 
 // Componente para proteção de rotas
 function PrivateRoute({ children }) {
@@ -87,6 +88,7 @@ function Layout() {
     { path: '/comandas', label: 'Comandas', icon: Coffee },
     { path: '/historico', label: 'Histórico de Vendas', icon: History },
     { path: '/clientes', label: 'Clientes', icon: Users },
+    { path: '/vasilhames', label: 'Vasilhames', icon: Package },
     ...(userRole === 'ADMIN' ? [{ path: '/usuarios', label: 'Usuários', icon: User }] : [])
   ];
 
@@ -179,6 +181,7 @@ function Layout() {
             <Route path="/comandas" element={<Comandas />} />
             <Route path="/historico" element={<Historico />} />
             <Route path="/clientes" element={<Clientes />} />
+            <Route path="/vasilhames" element={<Vasilhames />} />
             <Route path="/usuarios" element={userRole === 'ADMIN' ? <Usuarios /> : <Navigate to="/pdv" replace />} />
             <Route path="*" element={<Navigate to={userRole === 'ADMIN' ? "/dashboard" : "/pdv"} replace />} />
           </Routes>

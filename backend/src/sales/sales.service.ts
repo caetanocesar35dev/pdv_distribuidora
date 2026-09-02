@@ -6,7 +6,7 @@ import { PaymentMethod, SaleStatus, CashStatus, MovementType } from '@prisma/cli
 export class SalesService {
   constructor(private prisma: PrismaService) {}
 
-  async create(body: { paymentMethod: PaymentMethod; customerId?: number; discount?: number; skipStockUpdate?: boolean; commandTabId?: number; items: { productId: number; quantity: number }[] }, userId?: number) {
+  async create(body: { paymentMethod: PaymentMethod; customerId?: number; discount?: number; skipStockUpdate?: boolean; commandTabId?: number; items: { productId: number; quantity: number }[]; bottleMovements?: { bottleTypeId: number; quantity: number; type: 'CUSTOMER_BORROW' | 'CUSTOMER_RETURN' }[] }, userId?: number) {
     if (!body.items || body.items.length === 0) {
       throw new BadRequestException('A venda deve conter pelo menos um item.');
     }
@@ -127,6 +127,57 @@ export class SalesService {
             description: `Venda registrada #${sale.id}`,
           },
         });
+      }
+
+      // 6. Registrar Movimentações de Vasilhames
+      if (body.bottleMovements && body.bottleMovements.length > 0) {
+        if (!body.customerId) {
+          throw new BadRequestException('Para movimentar vasilhames na venda, é obrigatório informar o cliente.');
+        }
+
+        for (const bm of body.bottleMovements) {
+          if (bm.quantity <= 0) continue;
+
+          // Determina impacto no estoque da loja
+          const stockChange = bm.type === 'CUSTOMER_RETURN' ? bm.quantity : -bm.quantity;
+          
+          await tx.bottleType.update({
+            where: { id: bm.bottleTypeId },
+            data: { stock: { increment: stockChange } }
+          });
+
+          // Determina impacto no saldo do cliente
+          const balanceChange = bm.type === 'CUSTOMER_BORROW' ? bm.quantity : -bm.quantity;
+
+          await tx.customerBottleBalance.upsert({
+            where: {
+              customerId_bottleTypeId: {
+                customerId: body.customerId,
+                bottleTypeId: bm.bottleTypeId,
+              }
+            },
+            update: {
+              balance: { increment: balanceChange }
+            },
+            create: {
+              customerId: body.customerId,
+              bottleTypeId: bm.bottleTypeId,
+              balance: balanceChange, 
+            }
+          });
+
+          // Registra movimento
+          await tx.bottleMovement.create({
+            data: {
+              bottleTypeId: bm.bottleTypeId,
+              quantity: bm.quantity,
+              type: bm.type,
+              customerId: body.customerId,
+              saleId: sale.id,
+              description: `Movimentação no PDV (Venda #${sale.id})`
+            }
+          });
+        }
       }
 
       return sale;

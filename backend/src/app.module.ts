@@ -11,6 +11,7 @@ import { CustomersModule } from './customers/customers.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 
 import { CommandTabsModule } from './command-tabs/command-tabs.module';
+import { BottlesModule } from './bottles/bottles.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { CommandTabsModule } from './command-tabs/command-tabs.module';
     DashboardModule,
 
     CommandTabsModule,
+    BottlesModule,
     ScheduleModule.forRoot(),
   ],
   controllers: [AppController],
