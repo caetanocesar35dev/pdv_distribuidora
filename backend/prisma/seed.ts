@@ -18,7 +18,7 @@ async function main() {
 
   // 1. Criar usuário administrador padrão
   const adminEmail = process.env.ADMIN_EMAIL || 'admin@distribuidora.com';
-  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123julio';
 
   const existingAdmin = await prisma.user.findUnique({
     where: { email: adminEmail },
@@ -40,7 +40,7 @@ async function main() {
   }
 
   // 2. Criar produtos (com foco em Distribuidora)
-  const initialProducts = [
+  /* const initialProducts = [
     { code: '7891149103100', name: 'Cerveja Skol Lata 350ml', price: 3.50, costPrice: 2.20, stock: 240, packQuantity: 12 },
     { code: '7891991000826', name: 'Cerveja Brahma Chopp Lata 350ml', price: 3.70, costPrice: 2.30, stock: 240, packQuantity: 12 },
     { code: '7891991295987', name: 'Cerveja Heineken Long Neck 330ml', price: 7.50, costPrice: 5.50, stock: 144, packQuantity: 24 },
@@ -58,9 +58,9 @@ async function main() {
     { code: '7899876543210', name: 'Gelo em Cubos 5kg', price: 12.00, costPrice: 5.00, stock: 100, packQuantity: 1 },
     { code: '7892840815159', name: 'Salgadinho Doritos Queijo Nacho 90g', price: 8.50, costPrice: 5.00, stock: 40, packQuantity: 1 },
     { code: '7896000000000', name: 'Amendoim Japonês Dori 150g', price: 6.00, costPrice: 3.50, stock: 60, packQuantity: 1 }
-  ];
+  ]; */
 
-  let productsCount = 0;
+  /* let productsCount = 0;
   for (const productData of initialProducts) {
     const existingProduct = await prisma.product.findUnique({ where: { code: productData.code } });
     if (!existingProduct) {
@@ -68,32 +68,32 @@ async function main() {
       productsCount++;
     }
   }
-  console.log(`${productsCount} novos produtos criados (Total: ${initialProducts.length})`);
+  console.log(`${productsCount} novos produtos criados (Total: ${initialProducts.length})`); */
 
   // 3. Criar Clientes (incluindo dados do antigo seed-customers.ts)
-  const initialCustomers = [
-    { name: 'Bar do Zé (José Roberto)', phone: '(11) 98765-4321', balance: 150.50 },
-    { name: 'Restaurante Sabor Mineiro', phone: '(11) 91234-5678', balance: 420.00 },
-    { name: 'Carlos Alberto (Churrasco)', phone: '(11) 99999-1111', balance: 0.00 },
-    { name: 'Adega Grau Máximo', phone: '(11) 97777-2222', balance: 85.00 },
-    { name: 'Dona Maria (Mercadinho)', phone: '(11) 98888-3333', balance: 1200.00 },
-    { name: 'João Silva', phone: '11999998888', balance: 0 },
-    { name: 'Espetinho da Esquina', phone: '11966665555', balance: 0 }
-  ];
-
-  let customersCount = 0;
-  for (const customerData of initialCustomers) {
-    const existingCustomer = await prisma.customer.findFirst({ where: { name: customerData.name } });
-    if (!existingCustomer) {
-      await prisma.customer.create({ data: customerData });
-      customersCount++;
+  /*  const initialCustomers = [
+     { name: 'Bar do Zé (José Roberto)', phone: '(11) 98765-4321', balance: 150.50 },
+     { name: 'Restaurante Sabor Mineiro', phone: '(11) 91234-5678', balance: 420.00 },
+     { name: 'Carlos Alberto (Churrasco)', phone: '(11) 99999-1111', balance: 0.00 },
+     { name: 'Adega Grau Máximo', phone: '(11) 97777-2222', balance: 85.00 },
+     { name: 'Dona Maria (Mercadinho)', phone: '(11) 98888-3333', balance: 1200.00 },
+     { name: 'João Silva', phone: '11999998888', balance: 0 },
+     { name: 'Espetinho da Esquina', phone: '11966665555', balance: 0 }
+   ]; */
+  /* 
+    let customersCount = 0;
+    for (const customerData of initialCustomers) {
+      const existingCustomer = await prisma.customer.findFirst({ where: { name: customerData.name } });
+      if (!existingCustomer) {
+        await prisma.customer.create({ data: customerData });
+        customersCount++;
+      }
     }
-  }
-  console.log(`${customersCount} novos clientes criados (Total: ${initialCustomers.length})`);
+    console.log(`${customersCount} novos clientes criados (Total: ${initialCustomers.length})`); */
 
   // 4. Gerar Vendas (substituindo o seed-sales.ts)
-  const salesCountCheck = await prisma.sale.count();
-  if (salesCountCheck === 0) {
+  /* const salesCountCheck = await prisma.sale.count(); */
+  /* if (salesCountCheck === 0) {
     console.log('Nenhuma venda encontrada. Gerando 150 vendas com datas retroativas para os testes...');
     
     const dbProducts = await prisma.product.findMany();
@@ -160,7 +160,7 @@ async function main() {
     console.log(`O banco já possui ${salesCountCheck} vendas registradas. Pulando a geração automática de vendas.`);
   }
 
-  console.log('✅ Seed finalizado com sucesso!');
+  console.log('✅ Seed finalizado com sucesso!'); */
 }
 
 main()

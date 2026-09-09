@@ -11,10 +11,10 @@ WORKDIR /backup
 # Força o uso do usuário root (necessário para o crond no Alpine)
 USER root
 
-# Copia os scripts e dá permissão de execução
+# Copia os scripts, remove quebras de linha do Windows (CRLF) e dá permissão de execução
 COPY backup.sh /backup/backup.sh
 COPY entrypoint.sh /backup/entrypoint.sh
-RUN chmod +x /backup/backup.sh /backup/entrypoint.sh
+RUN sed -i 's/\r$//' /backup/*.sh && chmod +x /backup/backup.sh /backup/entrypoint.sh
 
 # Configura a crontab do root (dcron usa o diretório /etc/crontabs)
 COPY crontab /etc/crontabs/root

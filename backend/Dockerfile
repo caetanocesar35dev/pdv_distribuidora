@@ -15,8 +15,8 @@ COPY . .
 RUN npx prisma generate
 RUN npm run build
 
-# Dá permissão de execução ao entrypoint
-RUN chmod +x entrypoint.sh
+# Converte quebras de linha do Windows (CRLF) para Linux (LF) e dá permissão de execução
+RUN sed -i 's/\r$//' entrypoint.sh && chmod +x entrypoint.sh
 
 EXPOSE 3000
 
