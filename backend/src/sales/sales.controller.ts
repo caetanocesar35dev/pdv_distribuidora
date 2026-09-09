@@ -9,7 +9,7 @@ export class SalesController {
   constructor(private salesService: SalesService) {}
 
   @Post()
-  async create(@Body() body: { paymentMethod: PaymentMethod; customerId?: number; discount?: number; items: { productId: number; quantity: number }[] }, @Request() req: any) {
+  async create(@Body() body: { paymentMethod: PaymentMethod; customerId?: number; discount?: number; items: { productId: number; quantity: number }[]; bottleMovements?: { bottleTypeId: number; quantity: number; type: 'CUSTOMER_BORROW' | 'CUSTOMER_RETURN' }[] }, @Request() req: any) {
     return this.salesService.create(body, req.user.sub);
   }
 

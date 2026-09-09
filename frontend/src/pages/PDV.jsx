@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import {
   Search, Plus, Minus, Trash2, ShoppingCart,
-  DollarSign, CheckCircle2, AlertCircle, Printer, X, CreditCard, Users, MessageCircle
+  DollarSign, CheckCircle2, AlertCircle, Printer, X, CreditCard, Users, MessageCircle, Beer
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 
@@ -14,6 +14,7 @@ export default function PDV() {
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState([]);
   const [codeQuery, setCodeQuery] = useState('');
+  const [productSearch, setProductSearch] = useState('');
   const [selectedProduct, setSelectedProduct] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('MONEY');
   const [customers, setCustomers] = useState([]);
@@ -25,12 +26,17 @@ export default function PDV() {
   const [isPackSale, setIsPackSale] = useState(false);
   const [whatsappNumber, setWhatsappNumber] = useState('');
 
+  // Controle de Vasilhames no Checkout
+  const [bottleTypes, setBottleTypes] = useState([]);
+  const [returnedBottles, setReturnedBottles] = useState([]);
+
   const barcodeInputRef = useRef(null);
 
   useEffect(() => {
     checkCashRegister();
     loadProducts();
     loadCustomers();
+    loadBottleTypes();
   }, []);
 
   const checkCashRegister = async () => {
@@ -60,6 +66,15 @@ export default function PDV() {
       setCustomers(data);
     } catch (err) {
       console.error('Erro ao carregar clientes:', err);
+    }
+  };
+
+  const loadBottleTypes = async () => {
+    try {
+      const data = await api.get('/bottles/types');
+      setBottleTypes(data);
+    } catch (err) {
+      console.error('Erro ao carregar vasilhames:', err);
     }
   };
 
@@ -194,12 +209,34 @@ export default function PDV() {
   const discountValue = Number(discount) || 0;
   const finalTotal = cartTotal - discountValue;
 
+  const requiredBottles = cart.reduce((acc, item) => {
+    if (item.product.bottleTypeId) {
+      const typeId = item.product.bottleTypeId;
+      const current = acc.find(b => b.bottleTypeId === typeId);
+      if (current) {
+        current.quantity += Number(item.quantity) || 0;
+      } else {
+        acc.push({ bottleTypeId: typeId, quantity: Number(item.quantity) || 0 });
+      }
+    }
+    return acc;
+  }, []);
+
   const handleFinishSale = async () => {
     if (cart.length === 0) return;
 
     const hasInvalidQty = cart.some(item => !item.quantity || Number(item.quantity) <= 0);
     if (hasInvalidQty) {
       setError('Por favor, insira uma quantidade válida maior que zero para todos os produtos.');
+      return;
+    }
+
+    // Trava de segurança para vasilhames esquecidos
+    const typeSelect = document.getElementById('bottleTypeSelect');
+    const returnInput = document.getElementById('bottleReturnQtyInput');
+    
+    if (typeSelect?.value && parseInt(returnInput?.value) > 0) {
+      setError('Você preencheu o campo de devolução de vasilhame, mas esqueceu de clicar no botão "+" para adicionar à lista.');
       return;
     }
 
@@ -218,11 +255,18 @@ export default function PDV() {
         return;
       }
 
+      const payloadMovements = returnedBottles.map(rb => ({
+        bottleTypeId: rb.bottleTypeId,
+        quantity: rb.quantity,
+        type: 'CUSTOMER_RETURN'
+      }));
+
       const res = await api.post('/sales', {
         paymentMethod,
         customerId: selectedCustomer ? Number(selectedCustomer) : undefined,
         discount: discountValue > 0 ? discountValue : undefined,
-        items
+        items,
+        bottleMovements: payloadMovements.length > 0 ? payloadMovements : undefined
       });
 
       setSaleResult(res);
@@ -232,12 +276,31 @@ export default function PDV() {
       setCart([]);
       setSelectedCustomer('');
       setDiscount('');
+      setReturnedBottles([]);
       loadProducts(); // Recarregar produtos para atualizar estoque em tela
     } catch (err) {
       setError(err.message || 'Erro ao finalizar venda');
     } finally {
       setIsFinishing(false);
     }
+  };
+
+  const addReturnedBottle = (bottleTypeId, quantity) => {
+    if (quantity === 0) return;
+    const existing = returnedBottles.find(r => r.bottleTypeId === bottleTypeId);
+    if (existing) {
+      setReturnedBottles(returnedBottles.map(r => 
+        r.bottleTypeId === bottleTypeId 
+          ? { ...r, quantity: r.quantity + quantity }
+          : r
+      ));
+    } else {
+      setReturnedBottles([...returnedBottles, { bottleTypeId, quantity }]);
+    }
+  };
+
+  const removeReturnedBottle = (bottleTypeId) => {
+    setReturnedBottles(returnedBottles.filter(r => r.bottleTypeId !== bottleTypeId));
   };
 
   const generateReceiptHTML = () => {
@@ -324,7 +387,6 @@ export default function PDV() {
   const handleSendWhatsapp = async () => {
     if (!whatsappNumber) return;
     
-    // Cria um elemento temporário visível fora da tela para o html2canvas capturar
     const tempDiv = document.createElement('div');
     tempDiv.style.position = 'absolute';
     tempDiv.style.left = '-9999px';
@@ -379,7 +441,6 @@ export default function PDV() {
     );
   }
 
-  // Se caixa estiver fechado, exibe aviso bloqueante
   if (!cashRegister) {
     return (
       <div className="flex-1 p-6 md:p-10 max-w-4xl mx-auto flex flex-col justify-center items-center h-[calc(100vh-100px)]">
@@ -405,7 +466,6 @@ export default function PDV() {
 
   return (
     <div className="flex-1 p-6 font-sans text-white h-[calc(100vh-64px)] flex flex-col gap-6 overflow-hidden">
-      {/* Título e Status */}
         <div className="flex justify-between items-center shrink-0">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -430,15 +490,9 @@ export default function PDV() {
         </div>
       )}
 
-      {/* Main Grid split */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-hidden min-h-0">
-
-        {/* Lado Esquerdo: Carrinho e Inputs (Col-span 2) */}
         <div className="lg:col-span-2 flex flex-col gap-4 overflow-hidden min-h-0">
-
-          {/* Inputs de Pesquisa */}
           <div className="bg-slate-900/40 border border-slate-800 p-4 rounded-2xl flex flex-col md:flex-row gap-4 shrink-0">
-            {/* Input por código de barras */}
             <form onSubmit={handleAddByCode} className="flex-1 flex gap-2">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 w-5 h-5" />
@@ -461,29 +515,40 @@ export default function PDV() {
 
             <div className="h-px md:h-auto md:w-px bg-slate-800 my-1 md:my-0"></div>
 
-            {/* Select manual de produtos */}
-            <div className="flex-1 flex gap-2">
-              <select
-                value={selectedProduct}
-                onChange={(e) => setSelectedProduct(e.target.value)}
-                className="flex-1 px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500 transition-colors text-sm"
-              >
-                <option value="">Selecionar Produto...</option>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              const prod = products.find(p => p.name === productSearch);
+              if (prod) {
+                addToCart(prod);
+                setProductSearch('');
+                setError('');
+              } else {
+                setError('Produto não encontrado na lista. Selecione uma opção válida.');
+              }
+            }} className="flex-1 flex gap-2">
+              <input 
+                type="text"
+                list="products-datalist"
+                value={productSearch}
+                onChange={(e) => setProductSearch(e.target.value)}
+                placeholder="Nome do Produto..."
+                className="flex-1 px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-600 focus:outline-none focus:border-amber-500 transition-colors text-sm"
+              />
+              <datalist id="products-datalist">
                 {products.map(p => (
-                  <option key={p.id} value={p.id} disabled={p.stock <= 0}>
-                    {p.name} (Estoque: {p.stock}) - R$ {p.price.toFixed(2)}
+                  <option key={p.id} value={p.name}>
+                    Estoque: {p.stock} - R$ {p.price.toFixed(2)}
                   </option>
                 ))}
-              </select>
+              </datalist>
               <button
-                type="button"
-                onClick={handleAddBySelect}
-                disabled={!selectedProduct}
+                type="submit"
+                disabled={!productSearch}
                 className="px-5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-sm transition-colors cursor-pointer disabled:opacity-40"
               >
                 Adicionar
               </button>
-            </div>
+            </form>
           </div>
           
           <div className="bg-slate-900/20 border border-slate-800/80 px-4 py-3 rounded-2xl shrink-0 flex items-center justify-between">
@@ -501,7 +566,6 @@ export default function PDV() {
             </span>
           </div>
 
-          {/* Lista de itens no carrinho */}
           <div className="flex-1 bg-slate-900/40 border border-slate-800 rounded-2xl flex flex-col overflow-hidden min-h-0">
             <div className="bg-slate-900/80 px-6 py-4 border-b border-slate-800 flex justify-between items-center shrink-0">
               <h2 className="font-semibold text-sm tracking-wide uppercase text-slate-400">Carrinho de Compras</h2>
@@ -526,13 +590,11 @@ export default function PDV() {
                     </div>
 
                     <div className="flex items-center gap-6">
-                      {/* Subtotal */}
                       <div className="text-right shrink-0">
                         <p className="text-xs text-slate-500">Subtotal</p>
                         <p className="font-bold text-sm text-amber-500 mt-0.5">R$ {(item.product.price * item.quantity).toFixed(2)}</p>
                       </div>
 
-                      {/* Quantidade */}
                       <div className="flex flex-col items-center gap-1">
                         <div className="flex items-center bg-slate-900 border border-slate-800 rounded-lg p-1">
                           <button
@@ -575,7 +637,6 @@ export default function PDV() {
                         )}
                       </div>
 
-                      {/* Botão Remover */}
                       <button
                         onClick={() => removeFromCart(item.product.id)}
                         className="p-2 text-slate-500 hover:text-red-400 transition-colors cursor-pointer rounded-lg hover:bg-red-500/10"
@@ -590,10 +651,7 @@ export default function PDV() {
           </div>
         </div>
 
-        {/* Lado Direito: Fechamento de Venda (Col-span 1) */}
         <div className="flex flex-col gap-6 overflow-hidden min-h-0">
-
-          {/* Painel Total */}
           <div className="bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between shrink-0 shadow-lg">
             <div>
               <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider">Valor da Compra</p>
@@ -624,11 +682,9 @@ export default function PDV() {
             </div>
           </div>
 
-          {/* Formas de Pagamento e Botão Confirmar */}
           <div className="flex-1 bg-slate-900/40 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between min-h-0 overflow-y-auto">
             <div className="space-y-4">
               <h3 className="font-semibold text-xs uppercase tracking-wider text-slate-400">Forma de Pagamento</h3>
-
               <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-3">
                 {[
                   { id: 'MONEY', label: 'Dinheiro', icon: DollarSign },
@@ -684,6 +740,101 @@ export default function PDV() {
                   placeholder="0.00"
                   className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500 transition-colors text-sm"
                 />
+              </div>
+
+              <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-800">
+                <h2 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                  <Beer className="w-6 h-6 text-amber-500" />
+                  Vasilhames na Venda
+                </h2>
+                
+                {requiredBottles.length > 0 && (
+                  <div className="mb-4 bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">
+                    <p className="text-xs text-amber-500 font-bold uppercase tracking-wider mb-2">Exigidos por esta venda:</p>
+                    <div className="flex flex-col gap-1.5">
+                      {requiredBottles.map(rb => {
+                        const type = bottleTypes.find(t => t.id === rb.bottleTypeId);
+                        return (
+                          <div key={rb.bottleTypeId} className="flex justify-between items-center text-sm">
+                            <span className="text-amber-100 flex items-center gap-1.5">
+                              <Beer className="w-3.5 h-3.5 text-amber-500" />
+                              {type?.name}
+                            </span>
+                            <span className="font-bold text-amber-400 text-base">{rb.quantity}x</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex flex-col md:flex-row gap-2 mb-3">
+                  <select
+                    id="bottleTypeSelect"
+                    className="flex-1 px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500 transition-colors text-xs"
+                  >
+                    <option value="">Selecione o Vasilhame Devolvido...</option>
+                    {bottleTypes.map(t => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                  <div className="flex gap-2">
+                    <input
+                      id="bottleReturnQtyInput"
+                      type="number"
+                      min="0"
+                      placeholder="Trouxe Qtd"
+                      title="Quantidade que o cliente está devolvendo (Entrada na Loja)"
+                      className="w-24 px-2 py-2 bg-slate-950 border border-slate-800 rounded-xl text-emerald-400 focus:outline-none focus:border-emerald-500 transition-colors text-xs text-center"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const typeSelect = document.getElementById('bottleTypeSelect');
+                        const returnInput = document.getElementById('bottleReturnQtyInput');
+                        const typeId = parseInt(typeSelect.value);
+                        const returnQty = parseInt(returnInput.value) || 0;
+                        
+                        if (typeId && returnQty > 0) {
+                          addReturnedBottle(typeId, returnQty);
+                          typeSelect.value = '';
+                          returnInput.value = '';
+                        }
+                      }}
+                      className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-amber-500 rounded-xl transition-colors"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {returnedBottles.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-emerald-400 uppercase tracking-wider mb-1 mt-3">Devolvidos agora:</p>
+                    {returnedBottles.map(rb => {
+                      const type = bottleTypes.find(t => t.id === rb.bottleTypeId);
+                      return (
+                        <div key={rb.bottleTypeId} className="flex justify-between items-center bg-slate-950/50 p-2.5 rounded-lg border border-slate-800/50">
+                          <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                            <Beer className="w-3.5 h-3.5 text-emerald-500" />
+                            {type?.name}
+                          </span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 font-mono text-xs font-bold">
+                              {rb.quantity}x
+                            </span>
+                            <button
+                              onClick={() => removeReturnedBottle(rb.bottleTypeId)}
+                              className="text-slate-500 hover:text-red-400 p-1"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             </div>
 

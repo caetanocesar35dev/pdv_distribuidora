@@ -18,6 +18,11 @@ export class CustomersService {
   async findAll() {
     return this.prisma.customer.findMany({
       orderBy: { name: 'asc' },
+      include: {
+        bottleBalances: {
+          include: { bottleType: true }
+        }
+      }
     });
   }
 
@@ -30,6 +35,13 @@ export class CustomersService {
           include: { items: { include: { product: true } } },
           orderBy: { createdAt: 'desc' } 
         },
+        bottleBalances: {
+          include: { bottleType: true }
+        },
+        bottleMovements: {
+          include: { bottleType: true, sale: { select: { id: true } } },
+          orderBy: { createdAt: 'desc' }
+        }
       }
     });
 

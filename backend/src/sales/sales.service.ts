@@ -6,7 +6,7 @@ import { PaymentMethod, SaleStatus, CashStatus, MovementType } from '@prisma/cli
 export class SalesService {
   constructor(private prisma: PrismaService) {}
 
-  async create(body: { paymentMethod: PaymentMethod; customerId?: number; discount?: number; skipStockUpdate?: boolean; commandTabId?: number; items: { productId: number; quantity: number }[] }, userId?: number) {
+  async create(body: { paymentMethod: PaymentMethod; customerId?: number; discount?: number; skipStockUpdate?: boolean; commandTabId?: number; items: { productId: number; quantity: number }[]; bottleMovements?: { bottleTypeId: number; quantity: number; type: 'CUSTOMER_BORROW' | 'CUSTOMER_RETURN' }[] }, userId?: number) {
     if (!body.items || body.items.length === 0) {
       throw new BadRequestException('A venda deve conter pelo menos um item.');
     }
@@ -127,6 +127,87 @@ export class SalesService {
             description: `Venda registrada #${sale.id}`,
           },
         });
+      }
+
+      // 6. Registrar Movimentações de Vasilhames
+      const requiredBottles = new Map<number, number>();
+      for (const item of sale.items) {
+        if (item.product.bottleTypeId) {
+          const current = requiredBottles.get(item.product.bottleTypeId) || 0;
+          requiredBottles.set(item.product.bottleTypeId, current + item.quantity);
+        }
+      }
+
+      const returnedBottlesMap = new Map<number, number>();
+      if (body.bottleMovements) {
+        for (const bm of body.bottleMovements) {
+          if (bm.type === 'CUSTOMER_RETURN' && bm.quantity > 0) {
+            const current = returnedBottlesMap.get(bm.bottleTypeId) || 0;
+            returnedBottlesMap.set(bm.bottleTypeId, current + bm.quantity);
+          }
+        }
+      }
+
+      const allBottleTypeIds = new Set([...requiredBottles.keys(), ...returnedBottlesMap.keys()]);
+      
+      for (const typeId of allBottleTypeIds) {
+        const taken = requiredBottles.get(typeId) || 0;
+        const returned = returnedBottlesMap.get(typeId) || 0;
+        const diff = taken - returned;
+
+        if (diff !== 0 && !body.customerId) {
+          throw new BadRequestException('Para ficar com saldo devedor ou credor de vasilhames, é obrigatório selecionar um cliente na venda.');
+        }
+
+        // Se levou > 0, registra a saída
+        if (taken > 0) {
+          await tx.bottleType.update({
+            where: { id: typeId },
+            data: { stock: { decrement: taken } }
+          });
+          if (body.customerId) {
+            await tx.customerBottleBalance.upsert({
+              where: { customerId_bottleTypeId: { customerId: body.customerId, bottleTypeId: typeId } },
+              update: { balance: { increment: taken } },
+              create: { customerId: body.customerId, bottleTypeId: typeId, balance: taken }
+            });
+          }
+          await tx.bottleMovement.create({
+            data: {
+              bottleTypeId: typeId,
+              quantity: taken,
+              type: 'CUSTOMER_BORROW',
+              customerId: body.customerId || null,
+              saleId: sale.id,
+              description: `Empréstimo automático (Venda #${sale.id})`
+            }
+          });
+        }
+
+        // Se devolveu > 0, registra a entrada
+        if (returned > 0) {
+          await tx.bottleType.update({
+            where: { id: typeId },
+            data: { stock: { increment: returned } }
+          });
+          if (body.customerId) {
+            await tx.customerBottleBalance.upsert({
+              where: { customerId_bottleTypeId: { customerId: body.customerId, bottleTypeId: typeId } },
+              update: { balance: { decrement: returned } },
+              create: { customerId: body.customerId, bottleTypeId: typeId, balance: -returned }
+            });
+          }
+          await tx.bottleMovement.create({
+            data: {
+              bottleTypeId: typeId,
+              quantity: returned,
+              type: 'CUSTOMER_RETURN',
+              customerId: body.customerId || null,
+              saleId: sale.id,
+              description: `Devolução no PDV (Venda #${sale.id})`
+            }
+          });
+        }
       }
 
       return sale;

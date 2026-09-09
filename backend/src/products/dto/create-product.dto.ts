@@ -22,4 +22,8 @@ export class CreateProductDto {
   @IsNumber()
   @Min(1, { message: 'A quantidade por fardo/engradado deve ser no mínimo 1' })
   packQuantity?: number;
+
+  @IsOptional()
+  @IsNumber()
+  bottleTypeId?: number | null;
 }
