@@ -25,6 +25,7 @@ services:
       - ./backend/.env
     environment:
       - DATABASE_URL=postgresql://u_postgresql_distribuidora:99546350julio@postgres:5432/db_distribuidora?schema=public
+      - TZ=America/Sao_Paulo
     depends_on:
       - postgres
     restart: always

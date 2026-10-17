@@ -18,7 +18,7 @@ RUN npm run build
 # Converte quebras de linha do Windows (CRLF) para Linux (LF) e dá permissão de execução
 RUN sed -i 's/\r$//' entrypoint.sh && chmod +x entrypoint.sh
 
-EXPOSE 3000
+EXPOSE 3001
 
 # Roda migrations automaticamente e depois inicia o servidor
 ENTRYPOINT ["./entrypoint.sh"]
