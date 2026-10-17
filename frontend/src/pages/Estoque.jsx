@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { formatMoney } from '../utils/format';
 import { useForm } from 'react-hook-form';
+import CustomerPricesEditor from '../components/CustomerPricesEditor';
 import { 
   Package, Plus, Edit3, Trash2, ArrowUpRight, Search, 
   X, AlertTriangle, ArrowUpDown, RefreshCw
@@ -8,7 +10,17 @@ import {
 
 export default function Estoque() {
   const [products, setProducts] = useState([]);
+  // Editar/excluir produto e ajustar estoque manualmente: somente administradores
+  const [isAdmin] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('user') || '{}').role === 'ADMIN';
+    } catch {
+      return false;
+    }
+  });
   const [bottleTypes, setBottleTypes] = useState([]);
+  const [customers, setCustomers] = useState([]);
+  const [customerPrices, setCustomerPrices] = useState({}); // { [customerId]: preço digitado }
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState('');
@@ -19,7 +31,9 @@ export default function Estoque() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [isPackEntry, setIsPackEntry] = useState(false);
 
-  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm();
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm();
+  const watchedPrice = watch('price');
+  const watchedStock = watch('stock');
 
   useEffect(() => {
     loadProducts();
@@ -28,18 +42,31 @@ export default function Estoque() {
   const loadProducts = async () => {
     try {
       setLoading(true);
-      const [prodData, bottleData] = await Promise.all([
+      const [prodData, bottleData, customerData] = await Promise.all([
         api.get('/products'),
-        api.get('/bottles/types')
+        api.get('/bottles/types'),
+        api.get('/customers')
       ]);
       setProducts(prodData);
       setBottleTypes(bottleData.data || bottleData);
+      setCustomers(customerData);
     } catch (err) {
       console.error(err);
       setError('Erro ao carregar dados do estoque');
     } finally {
       setLoading(false);
     }
+  };
+
+  // Monta a lista de preços especiais (só os clientes com preço preenchido)
+  const buildCustomerPricesPayload = () => {
+    const list = Object.entries(customerPrices)
+      .filter(([, value]) => value !== '' && value !== undefined && value !== null)
+      .map(([customerId, value]) => ({ customerId: Number(customerId), price: parseFloat(String(value).replace(',', '.')) }));
+    if (list.some(cp => isNaN(cp.price) || cp.price <= 0)) {
+      throw new Error('Os preços especiais por cliente devem ser maiores que zero.');
+    }
+    return list;
   };
 
   const handleCreateProduct = async (data) => {
@@ -51,7 +78,8 @@ export default function Estoque() {
         price: parseFloat(data.price),
         costPrice: parseFloat(data.costPrice || 0),
         stock: parseInt(data.stock) || 0,
-        packQuantity: parseInt(data.packQuantity) || 1
+        packQuantity: parseInt(data.packQuantity) || 1,
+        customerPrices: buildCustomerPricesPayload()
       };
       if (data.requiresBottle && data.bottleTypeId) {
         payload.bottleTypeId = parseInt(data.bottleTypeId);
@@ -75,7 +103,9 @@ export default function Estoque() {
         price: parseFloat(data.price),
         costPrice: parseFloat(data.costPrice || 0),
         packQuantity: parseInt(data.packQuantity) || 1,
-        bottleTypeId: (data.requiresBottle && data.bottleTypeId) ? parseInt(data.bottleTypeId) : null
+        stock: parseInt(data.stock),
+        bottleTypeId: (data.requiresBottle && data.bottleTypeId) ? parseInt(data.bottleTypeId) : null,
+        customerPrices: buildCustomerPricesPayload()
       };
       await api.patch(`/products/${selectedProduct.id}`, payload);
       setSuccess(`Produto "${data.name}" atualizado com sucesso!`);
@@ -123,6 +153,7 @@ export default function Estoque() {
   const openModal = (type, product = null) => {
     setSelectedProduct(product);
     setActiveModal(type);
+    setCustomerPrices({});
     reset();
 
     if (type === 'edit' && product) {
@@ -130,10 +161,15 @@ export default function Estoque() {
       setValue('price', product.price);
       setValue('costPrice', product.costPrice || 0);
       setValue('packQuantity', product.packQuantity || 1);
+      setValue('stock', product.stock);
       setValue('requiresBottle', !!product.bottleTypeId);
       if (product.bottleTypeId) {
         setValue('bottleTypeId', product.bottleTypeId);
       }
+      // Carrega os preços especiais já cadastrados para o produto
+      api.get(`/products/${product.id}`)
+        .then(full => setCustomerPrices(Object.fromEntries((full.customerPrices || []).map(cp => [cp.customerId, String(cp.price)]))))
+        .catch(() => setError('Erro ao carregar os preços por cliente do produto'));
     }
     
     if (type === 'entry') {
@@ -144,6 +180,7 @@ export default function Estoque() {
   const closeModal = () => {
     setActiveModal(null);
     setSelectedProduct(null);
+    setCustomerPrices({});
     reset();
   };
 
@@ -245,8 +282,8 @@ export default function Estoque() {
                       <tr key={product.id} className="hover:bg-slate-900/10 transition-colors">
                         <td className="px-6 py-4 font-mono text-xs text-slate-450">{product.code}</td>
                         <td className="px-6 py-4 font-semibold text-white">{product.name}</td>
-                        <td className="px-6 py-4 text-right font-bold text-amber-500">R$ {product.price.toFixed(2)}</td>
-                        <td className="px-6 py-4 text-right font-bold text-slate-400">R$ {(product.costPrice || 0).toFixed(2)}</td>
+                        <td className="px-6 py-4 text-right font-bold text-amber-500">R$ {formatMoney(product.price)}</td>
+                        <td className="px-6 py-4 text-right font-bold text-slate-400">R$ {formatMoney((product.costPrice || 0))}</td>
                         <td className="px-6 py-4 text-center text-slate-400 text-xs">{product.packQuantity > 1 ? `${product.packQuantity} un.` : '-'}</td>
                         <td className="px-6 py-4 text-center">
                           <div className="flex flex-col items-center justify-center gap-1.5">
@@ -275,6 +312,8 @@ export default function Estoque() {
                             >
                               <ArrowUpRight className="w-4 h-4" />
                             </button>
+                            {isAdmin && (
+                            <>
                             <button
                               onClick={() => openModal('edit', product)}
                               className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-500/10 rounded-lg transition-colors cursor-pointer"
@@ -289,6 +328,8 @@ export default function Estoque() {
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
+                            </>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -304,7 +345,7 @@ export default function Estoque() {
       {/* MODAL: Cadastrar Produto */}
       {activeModal === 'create' && (
         <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-2xl shadow-2xl p-6 relative">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl p-6 relative">
             <button onClick={closeModal} className="absolute right-4 top-4 text-slate-500 hover:text-white p-1 rounded-lg hover:bg-slate-800">
               <X className="w-5 h-5" />
             </button>
@@ -327,9 +368,9 @@ export default function Estoque() {
                   <label className="block text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">Preço Venda (R$)</label>
                   <input
                     type="number"
-                    step="0.01"
-                    min="0.01"
-                    {...register('price', { required: 'Preço é obrigatório', min: { value: 0.01, message: 'Preço deve ser maior que zero' } })}
+                    step="0.001"
+                    min="0.001"
+                    {...register('price', { required: 'Preço é obrigatório', min: { value: 0.001, message: 'Preço deve ser maior que zero' } })}
                     placeholder="4.50"
                     className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-650 focus:outline-none focus:border-amber-500 transition-colors text-sm"
                   />
@@ -340,7 +381,7 @@ export default function Estoque() {
                   <label className="block text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">Preço Custo (R$)</label>
                   <input
                     type="number"
-                    step="0.01"
+                    step="0.001"
                     min="0"
                     {...register('costPrice', { required: 'Custo é obrigatório', min: { value: 0, message: 'Custo não pode ser negativo' } })}
                     placeholder="2.00"
@@ -401,6 +442,13 @@ export default function Estoque() {
                 </div>
               </div>
 
+              <CustomerPricesEditor
+                customers={customers}
+                values={customerPrices}
+                onChange={(customerId, value) => setCustomerPrices(prev => ({ ...prev, [customerId]: value }))}
+                standardPrice={watchedPrice}
+              />
+
               <button
                 type="submit"
                 className="w-full py-3.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs uppercase tracking-wider transition-colors cursor-pointer"
@@ -415,7 +463,7 @@ export default function Estoque() {
       {/* MODAL: Editar Produto */}
       {activeModal === 'edit' && selectedProduct && (
         <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 w-full max-w-md rounded-2xl shadow-2xl p-6 relative">
+          <div className="bg-slate-900 border border-slate-800 w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl p-6 relative">
             <button onClick={closeModal} className="absolute right-4 top-4 text-slate-500 hover:text-white p-1 rounded-lg hover:bg-slate-800">
               <X className="w-5 h-5" />
             </button>
@@ -437,9 +485,9 @@ export default function Estoque() {
                   <label className="block text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">Preço Venda (R$)</label>
                   <input
                     type="number"
-                    step="0.01"
-                    min="0.01"
-                    {...register('price', { required: 'Preço é obrigatório', min: { value: 0.01, message: 'Preço deve ser maior que zero' } })}
+                    step="0.001"
+                    min="0.001"
+                    {...register('price', { required: 'Preço é obrigatório', min: { value: 0.001, message: 'Preço deve ser maior que zero' } })}
                     className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500 transition-colors text-sm"
                   />
                   {errors.price && <span className="text-red-400 text-xs mt-1 block">{errors.price.message}</span>}
@@ -449,7 +497,7 @@ export default function Estoque() {
                   <label className="block text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">Preço Custo (R$)</label>
                   <input
                     type="number"
-                    step="0.01"
+                    step="0.001"
                     min="0"
                     {...register('costPrice', { required: 'Custo é obrigatório', min: { value: 0, message: 'Custo não pode ser negativo' } })}
                     className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500 transition-colors text-sm"
@@ -467,7 +515,35 @@ export default function Estoque() {
                   />
                   {errors.packQuantity && <span className="text-red-400 text-xs mt-1 block">{errors.packQuantity.message}</span>}
                 </div>
+
+                <div>
+                  <label className="block text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">Estoque Atual (Unid.)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    {...register('stock', {
+                      required: 'Informe a quantidade em estoque',
+                      min: { value: 0, message: 'Estoque não pode ser negativo' },
+                      validate: v => Number.isInteger(Number(v)) || 'Use um número inteiro de unidades'
+                    })}
+                    className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500 transition-colors text-sm"
+                  />
+                  {errors.stock && <span className="text-red-400 text-xs mt-1 block">{errors.stock.message}</span>}
+                </div>
               </div>
+
+              {/* Aviso de ajuste manual de estoque (correção de contagem) */}
+              {watchedStock !== undefined && watchedStock !== '' && Number(watchedStock) !== selectedProduct.stock && (
+                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>
+                    Ajuste manual de estoque: de <strong>{selectedProduct.stock}</strong> para <strong>{Number(watchedStock)}</strong> unidades
+                    ({Number(watchedStock) > selectedProduct.stock ? '+' : ''}{Number(watchedStock) - selectedProduct.stock}).
+                    Use apenas para corrigir contagem; entradas de mercadoria devem ser feitas pelo botão de entrada.
+                  </span>
+                </div>
+              )}
 
               <div className="p-3 bg-slate-950/50 rounded-xl border border-slate-800/80 mt-2">
                 <div className="flex items-center gap-2 mb-2">
@@ -494,6 +570,13 @@ export default function Estoque() {
                   </select>
                 </div>
               </div>
+
+              <CustomerPricesEditor
+                customers={customers}
+                values={customerPrices}
+                onChange={(customerId, value) => setCustomerPrices(prev => ({ ...prev, [customerId]: value }))}
+                standardPrice={watchedPrice}
+              />
 
               <button
                 type="submit"
@@ -539,7 +622,7 @@ export default function Estoque() {
                 <input
                   type="number"
                   step="any"
-                  {...register('quantity', { required: 'Defina a quantidade de entrada', min: { value: 0.01, message: 'A quantidade deve ser maior que zero' } })}
+                  {...register('quantity', { required: 'Defina a quantidade de entrada', min: { value: 0.001, message: 'A quantidade deve ser maior que zero' } })}
                   placeholder={isPackEntry ? "Ex: 10.5 (fardos)" : "Ex: 24 (unidades)"}
                   className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-655 focus:outline-none focus:border-amber-500 transition-colors text-sm"
                 />

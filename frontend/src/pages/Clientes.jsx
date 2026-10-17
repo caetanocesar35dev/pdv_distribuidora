@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { formatMoney } from '../utils/format';
 import {
   Users, Plus, Search, AlertTriangle, CheckCircle2, DollarSign, Edit, Eye, X, Calendar, ShoppingBag, CreditCard, Beer, ArrowRightLeft
 } from 'lucide-react';
@@ -218,7 +219,7 @@ export default function Clientes() {
         <div className="bg-slate-900/40 border border-slate-800 p-5 rounded-2xl flex items-center justify-between">
           <div>
             <span className="text-xs text-slate-400 uppercase font-bold tracking-wider block mb-1">Total a Receber (Fiado)</span>
-            <span className="text-2xl font-black text-rose-400">R$ {totalDebt.toFixed(2)}</span>
+            <span className="text-2xl font-black text-rose-400">R$ {formatMoney(totalDebt)}</span>
           </div>
           <div className="w-12 h-12 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center">
             <DollarSign className="w-6 h-6 text-rose-400" />
@@ -299,7 +300,7 @@ export default function Clientes() {
                     <td className="py-3 px-6 font-medium text-white">{customer.name}</td>
                     <td className="py-3 px-6 text-slate-400">{customer.phone ? formatPhoneMask(customer.phone) : '-'}</td>
                     <td className="py-3 px-6 font-bold text-rose-400">
-                      {customer.balance > 0 ? `R$ ${customer.balance.toFixed(2)}` : '-'}
+                      {customer.balance > 0 ? `R$ ${formatMoney(customer.balance)}` : '-'}
                     </td>
                     <td className="py-3 px-6">
                       {customer.bottleBalances && customer.bottleBalances.filter(b => b.balance > 0).length > 0 ? (
@@ -409,7 +410,7 @@ export default function Clientes() {
               Receber Fiado
             </h2>
             <p className="text-slate-400 text-xs mb-4">
-              Cliente: <strong className="text-white">{payData.name}</strong> • Dívida Total: <strong className="text-rose-400">R$ {payData.balance.toFixed(2)}</strong>
+              Cliente: <strong className="text-white">{payData.name}</strong> • Dívida Total: <strong className="text-rose-400">R$ {formatMoney(payData.balance)}</strong>
             </p>
 
             <form onSubmit={handlePayDebt} className="space-y-4">
@@ -418,8 +419,8 @@ export default function Clientes() {
                 <input
                   required
                   type="number"
-                  step="0.01"
-                  min="0.01"
+                  step="0.001"
+                  min="0.001"
                   max={payData.balance}
                   value={payData.amount}
                   onChange={e => setPayData({ ...payData, amount: e.target.value })}
@@ -491,7 +492,7 @@ export default function Clientes() {
                     <span>•</span>
                     <span>
                       Saldo Devedor: <strong className={customerDetail.balance > 0 ? 'text-rose-400 font-bold' : 'text-emerald-400 font-bold'}>
-                        R$ {customerDetail.balance.toFixed(2)}
+                        R$ {formatMoney(customerDetail.balance)}
                       </strong>
                     </span>
                   </div>
@@ -528,7 +529,7 @@ export default function Clientes() {
                               {sale.items?.map((item, idx) => (
                                 <div key={idx} className="flex justify-between">
                                   <span>{item.product?.name || 'Produto'} x{item.quantity}</span>
-                                  <span>R$ {(item.price * item.quantity).toFixed(2)}</span>
+                                  <span>R$ {formatMoney((item.price * item.quantity))}</span>
                                 </div>
                               ))}
                             </div>
@@ -539,9 +540,9 @@ export default function Clientes() {
                               </span>
                               <div className="text-right">
                                 {sale.discount > 0 && (
-                                  <span className="text-emerald-400 text-[11px] block">- R$ {sale.discount.toFixed(2)} desc.</span>
+                                  <span className="text-emerald-400 text-[11px] block">- R$ {formatMoney(sale.discount)} desc.</span>
                                 )}
-                                <span className="font-bold text-amber-500 text-sm">Total: R$ {sale.total.toFixed(2)}</span>
+                                <span className="font-bold text-amber-500 text-sm">Total: R$ {formatMoney(sale.total)}</span>
                               </div>
                             </div>
                           </div>
@@ -566,7 +567,7 @@ export default function Clientes() {
                         {customerDetail.payments.map(pay => (
                           <div key={pay.id} className="bg-slate-950/70 border border-slate-800 p-3 rounded-xl flex justify-between items-center text-xs">
                             <div>
-                              <span className="font-bold text-emerald-400 block">+ R$ {pay.amount.toFixed(2)}</span>
+                              <span className="font-bold text-emerald-400 block">+ R$ {formatMoney(pay.amount)}</span>
                               <span className="text-slate-500 text-[11px]">
                                 {new Date(pay.createdAt).toLocaleString('pt-BR')} • {translatePayment(pay.paymentMethod)}
                               </span>

@@ -23,6 +23,11 @@ export class CustomersController {
     return this.customersService.findOne(+id);
   }
 
+  @Get(':id/prices')
+  getProductPrices(@Param('id') id: string) {
+    return this.customersService.getProductPrices(+id);
+  }
+
   @Put(':id')
   update(@Param('id') id: string, @Body() body: { name?: string; phone?: string }) {
     return this.customersService.update(+id, body);

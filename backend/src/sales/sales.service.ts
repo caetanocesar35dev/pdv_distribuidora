@@ -6,7 +6,10 @@ import { PaymentMethod, SaleStatus, CashStatus, MovementType } from '@prisma/cli
 export class SalesService {
   constructor(private prisma: PrismaService) {}
 
-  async create(body: { paymentMethod: PaymentMethod; customerId?: number; discount?: number; skipStockUpdate?: boolean; commandTabId?: number; items: { productId: number; quantity: number }[]; bottleMovements?: { bottleTypeId: number; quantity: number; type: 'CUSTOMER_BORROW' | 'CUSTOMER_RETURN' }[] }, userId?: number) {
+  async create(body: { paymentMethod: PaymentMethod; customerId?: number; discount?: number; skipStockUpdate?: boolean; commandTabId?: number; items: { productId: number; quantity: number }[]; bottleMovements?: { bottleTypeId: number; quantity: number; type: 'CUSTOMER_BORROW' | 'CUSTOMER_RETURN' }[] }, userId?: number, options: { retroactiveDate?: Date } = {}) {
+    // Venda retroativa (lançada do caderno): não exige caixa aberto e não mexe em estoque, caixa nem vasilhames
+    const isRetroactive = !!options.retroactiveDate;
+
     if (!body.items || body.items.length === 0) {
       throw new BadRequestException('A venda deve conter pelo menos um item.');
     }
@@ -21,19 +24,28 @@ export class SalesService {
       const activeCash = await tx.cashRegister.findFirst({
         where: { status: CashStatus.OPEN },
       });
-      if (!activeCash) {
+      if (!activeCash && !isRetroactive) {
         throw new BadRequestException('Não há caixa aberto. Abra o caixa antes de realizar vendas.');
       }
 
       let total = 0;
       let totalCost = 0;
-      const saleItemsData: { productId: number; quantity: number; price: number; costPrice: number }[] = [];
+      const saleItemsData: { productId: number; quantity: number; price: number; costPrice: number; standardPrice: number }[] = [];
+
+      // Preços especiais do cliente (sem registro para o produto = preço de portaria)
+      const customerPrices = new Map<number, number>();
+      if (body.customerId) {
+        const prices = await tx.customerProductPrice.findMany({
+          where: { customerId: body.customerId, productId: { in: body.items.map(i => i.productId) } },
+        });
+        prices.forEach(p => customerPrices.set(p.productId, p.price));
+      }
       const stockUpdates: { productId: number; newStock: number }[] = [];
 
       // 2. Validar estoque e calcular o total com base no preço do cadastro (preço fixo)
       for (const item of body.items) {
-        if (item.quantity <= 0) {
-          throw new BadRequestException('A quantidade de cada produto deve ser maior que zero.');
+        if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
+          throw new BadRequestException('A quantidade de cada produto deve ser um número inteiro maior que zero.');
         }
 
         const product = await tx.product.findUnique({
@@ -44,13 +56,15 @@ export class SalesService {
           throw new NotFoundException(`Produto com ID ${item.productId} não encontrado.`);
         }
 
-        if (product.stock < item.quantity) {
+        // Em comandas o estoque já foi baixado ao adicionar o item, então não valida de novo
+        if (!body.skipStockUpdate && !isRetroactive && product.stock < item.quantity) {
           throw new BadRequestException(
             `Estoque insuficiente para o produto "${product.name}". Estoque atual: ${product.stock}, solicitado: ${item.quantity}.`
           );
         }
 
-        const itemTotal = product.price * item.quantity;
+        const unitPrice = customerPrices.get(product.id) ?? product.price;
+        const itemTotal = unitPrice * item.quantity;
         const itemTotalCost = product.costPrice * item.quantity;
         total += itemTotal;
         totalCost += itemTotalCost;
@@ -58,8 +72,9 @@ export class SalesService {
         saleItemsData.push({
           productId: product.id,
           quantity: item.quantity,
-          price: product.price,
+          price: unitPrice,
           costPrice: product.costPrice,
+          standardPrice: product.price,
         });
 
         stockUpdates.push({
@@ -69,7 +84,7 @@ export class SalesService {
       }
 
       // 3. Atualizar estoques dos produtos
-      if (!body.skipStockUpdate) {
+      if (!body.skipStockUpdate && !isRetroactive) {
         for (const update of stockUpdates) {
           await tx.product.update({
             where: { id: update.productId },
@@ -97,6 +112,8 @@ export class SalesService {
           commandTabId: body.commandTabId,
           userId,
           status: SaleStatus.COMPLETED,
+          isRetroactive,
+          ...(isRetroactive ? { createdAt: options.retroactiveDate } : {}),
           items: {
             create: saleItemsData,
           },
@@ -117,7 +134,7 @@ export class SalesService {
           where: { id: body.customerId },
           data: { balance: { increment: total } },
         });
-      } else {
+      } else if (!isRetroactive && activeCash) {
         // Venda à vista: registra movimentação de entrada no caixa
         await tx.cashMovement.create({
           data: {
@@ -127,6 +144,11 @@ export class SalesService {
             description: `Venda registrada #${sale.id}`,
           },
         });
+      }
+
+      // Venda retroativa não movimenta vasilhames (o empréstimo já aconteceu no passado)
+      if (isRetroactive) {
+        return sale;
       }
 
       // 6. Registrar Movimentações de Vasilhames
@@ -336,12 +358,13 @@ export class SalesService {
       const activeCash = await tx.cashRegister.findFirst({
         where: { status: CashStatus.OPEN },
       });
-      if (!activeCash) {
+      // Venda retroativa (do caderno) não mexeu em estoque nem caixa, então o cancelamento também não mexe
+      if (!activeCash && !sale.isRetroactive) {
         throw new BadRequestException('Para cancelar uma venda, o caixa deve estar aberto para registrar o estorno.');
       }
 
       // 3. Devolver produtos ao estoque
-      for (const item of sale.items) {
+      for (const item of sale.isRetroactive ? [] : sale.items) {
         const product = await tx.product.findUnique({
           where: { id: item.productId },
         });
@@ -377,7 +400,7 @@ export class SalesService {
           where: { id: sale.customerId },
           data: { balance: { decrement: sale.total } },
         });
-      } else {
+      } else if (!sale.isRetroactive && activeCash) {
         await tx.cashMovement.create({
           data: {
             cashRegisterId: activeCash.id,

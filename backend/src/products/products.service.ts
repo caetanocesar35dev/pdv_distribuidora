@@ -1,4 +1,5 @@
 import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -24,7 +25,7 @@ export class ProductsService {
   async findOne(id: number) {
     const product = await this.prisma.product.findUnique({
       where: { id },
-      include: { bottleType: true }
+      include: { bottleType: true, customerPrices: true }
     });
     if (!product) {
       throw new NotFoundException('Produto não encontrado');
@@ -54,37 +55,79 @@ export class ProductsService {
       }
     }
 
-    return this.prisma.product.create({
-      data: {
-        code,
-        name: data.name,
-        price: Number(data.price),
-        costPrice: Number(data.costPrice),
-        stock: data.stock !== undefined ? Number(data.stock) : 0,
-        packQuantity: data.packQuantity !== undefined ? Number(data.packQuantity) : 1,
-        bottleTypeId: data.bottleTypeId ? Number(data.bottleTypeId) : null,
-        modifierId: data.modifierId,
-        modifiedEndpoint: data.modifiedEndpoint,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const product = await tx.product.create({
+        data: {
+          code,
+          name: data.name,
+          price: Number(data.price),
+          costPrice: Number(data.costPrice),
+          stock: data.stock !== undefined ? Number(data.stock) : 0,
+          packQuantity: data.packQuantity !== undefined ? Number(data.packQuantity) : 1,
+          bottleTypeId: data.bottleTypeId ? Number(data.bottleTypeId) : null,
+          modifierId: data.modifierId,
+          modifiedEndpoint: data.modifiedEndpoint,
+        },
+      });
+      await this.syncCustomerPrices(tx, product.id, data.customerPrices);
+      return product;
     });
   }
 
   async update(id: number, data: UpdateProductDto & { modifierId?: number, modifiedEndpoint?: string }) {
     await this.findOne(id);
+    const { customerPrices, ...productData } = data;
 
-    return this.prisma.product.update({
-      where: { id },
-      data: {
-        ...data,
-        price: data.price !== undefined ? Number(data.price) : undefined,
-        costPrice: data.costPrice !== undefined ? Number(data.costPrice) : undefined,
-        stock: data.stock !== undefined ? Number(data.stock) : undefined,
-        packQuantity: data.packQuantity !== undefined ? Number(data.packQuantity) : undefined,
-        bottleTypeId: data.bottleTypeId !== undefined ? (data.bottleTypeId ? Number(data.bottleTypeId) : null) : undefined,
-        modifierId: data.modifierId,
-        modifiedEndpoint: data.modifiedEndpoint,
-      },
+    // Ajuste manual de estoque (correção de contagem): precisa ser inteiro e não negativo
+    if (data.stock !== undefined && (!Number.isInteger(Number(data.stock)) || Number(data.stock) < 0)) {
+      throw new BadRequestException('A quantidade em estoque deve ser um número inteiro maior ou igual a zero');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const product = await tx.product.update({
+        where: { id },
+        data: {
+          ...productData,
+          price: data.price !== undefined ? Number(data.price) : undefined,
+          costPrice: data.costPrice !== undefined ? Number(data.costPrice) : undefined,
+          stock: data.stock !== undefined ? Number(data.stock) : undefined,
+          packQuantity: data.packQuantity !== undefined ? Number(data.packQuantity) : undefined,
+          bottleTypeId: data.bottleTypeId !== undefined ? (data.bottleTypeId ? Number(data.bottleTypeId) : null) : undefined,
+          modifierId: data.modifierId,
+          modifiedEndpoint: data.modifiedEndpoint,
+        },
+      });
+      await this.syncCustomerPrices(tx, id, customerPrices);
+      return product;
     });
+  }
+
+  // Substitui os preços especiais por cliente do produto pela lista recebida.
+  // Se a lista não for enviada (undefined), os preços existentes são mantidos.
+  private async syncCustomerPrices(
+    tx: Prisma.TransactionClient,
+    productId: number,
+    customerPrices?: { customerId: number; price: number }[],
+  ) {
+    if (customerPrices === undefined || customerPrices === null) return;
+    if (!Array.isArray(customerPrices)) {
+      throw new BadRequestException('Formato inválido para os preços por cliente');
+    }
+
+    const data = customerPrices
+      .filter(cp => cp && cp.price !== null && cp.price !== undefined && String(cp.price) !== '')
+      .map(cp => ({ productId, customerId: Number(cp.customerId), price: Number(cp.price) }));
+
+    for (const cp of data) {
+      if (!Number.isInteger(cp.customerId) || isNaN(cp.price) || cp.price <= 0) {
+        throw new BadRequestException('Os preços especiais por cliente devem ser maiores que zero');
+      }
+    }
+
+    await tx.customerProductPrice.deleteMany({ where: { productId } });
+    if (data.length > 0) {
+      await tx.customerProductPrice.createMany({ data });
+    }
   }
 
   async addStock(id: number, quantity: number, modifierId?: number, modifiedEndpoint?: string) {

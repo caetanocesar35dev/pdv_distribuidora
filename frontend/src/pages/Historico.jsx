@@ -1,9 +1,31 @@
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { formatMoney } from '../utils/format';
+import { buildReceiptHTML, printReceiptHTML } from '../utils/receipt';
 import { 
   History, Search, Printer, XSquare, AlertTriangle, CheckCircle2, 
-  Calendar, Info, X, ChevronRight, Coffee
+  Calendar, Info, X, ChevronRight, Coffee, Tag, BookOpen
 } from 'lucide-react';
+
+// Item vendido com preço especial do cliente (diferente do preço de portaria da época).
+// Vendas antigas não têm standardPrice e são consideradas preço de portaria.
+const isSpecialPriceItem = (item) =>
+  item.standardPrice !== null && item.standardPrice !== undefined && Math.abs(item.price - item.standardPrice) > 0.0005;
+const hasSpecialPrice = (sale) => (sale.items || []).some(isSpecialPriceItem);
+
+const RetroactiveBadge = () => (
+  <span className="flex items-center gap-1 bg-sky-500/15 text-sky-400 text-[10px] px-2 py-0.5 rounded-full font-sans uppercase tracking-wider" title="Venda antiga lançada do caderno (não mexeu no estoque nem no caixa)">
+    <BookOpen className="w-3 h-3" />
+    Caderno
+  </span>
+);
+
+const SpecialPriceBadge = () => (
+  <span className="flex items-center gap-1 bg-emerald-500/15 text-emerald-400 text-[10px] px-2 py-0.5 rounded-full font-sans uppercase tracking-wider" title="Venda com preço especial do cliente">
+    <Tag className="w-3 h-3" />
+    Preço especial
+  </span>
+);
 
 export default function Historico() {
   const [sales, setSales] = useState([]);
@@ -82,7 +104,11 @@ export default function Historico() {
   };
 
   const handleCancelSale = async (id) => {
-    if (!window.confirm(`Tem certeza que deseja cancelar a venda #${id}? Os produtos voltarão ao estoque e o estorno será registrado no caixa.`)) {
+    const isRetroactive = sales.find(s => s.id === id)?.isRetroactive || selectedSale?.isRetroactive;
+    const message = isRetroactive
+      ? `Tem certeza que deseja cancelar a venda antiga #${id} (lançada do caderno)? O estoque e o caixa não serão alterados; se for fiado, o valor sai da dívida do cliente.`
+      : `Tem certeza que deseja cancelar a venda #${id}? Os produtos voltarão ao estoque e o estorno será registrado no caixa.`;
+    if (!window.confirm(message)) {
       return;
     }
     setError('');
@@ -99,8 +125,15 @@ export default function Historico() {
     }
   };
 
+  // Reimpressão no tamanho da bobina configurada (VITE_RECEIPT_WIDTH: 58 ou 80 mm)
   const printReceipt = () => {
-    window.print();
+    if (!selectedSale) return;
+    printReceiptHTML(buildReceiptHTML(selectedSale, {
+      reprint: true,
+      customerName: selectedSale.customer?.name,
+      operatorName: selectedSale.user?.name,
+      canceled: selectedSale.status === 'CANCELED',
+    }));
   };
 
   const translatePayment = (method) => {
@@ -150,64 +183,6 @@ export default function Historico() {
   return (
     <div className="flex-1 p-6 font-sans text-white h-[calc(100vh-64px)] overflow-y-auto space-y-6">
       
-      {/* Impressão do Comprovante Não-Fiscal (Oculto em tela, exibido no Print) */}
-      {selectedSale && (
-        <div className="hidden print:block print:p-4 text-black bg-white w-[80mm] text-xs font-mono">
-          <div className="text-center font-bold text-sm mb-2">DISTRIBUIDORA DE BEBIDAS</div>
-          <div className="text-center mb-2">CNPJ: 00.000.000/0001-00</div>
-          <div className="border-b border-dashed border-black my-1"></div>
-          <div className="text-center font-bold">REIMPRESSÃO DE COMPROVANTE</div>
-          <div className="border-b border-dashed border-black my-1"></div>
-          <div>Pedido: #{selectedSale.id}</div>
-          <div>Data/Hora: {new Date(selectedSale.createdAt).toLocaleString('pt-BR')}</div>
-          {selectedSale.user && (
-            <div>Operador: {selectedSale.user.name}</div>
-          )}
-          {selectedSale.customer && (
-            <div>Cliente: {selectedSale.customer.name}</div>
-          )}
-          <div>Status: {selectedSale.status === 'CANCELED' ? 'CANCELADO' : 'CONCLUÍDO'}</div>
-          <div className="border-b border-dashed border-black my-1"></div>
-          
-          <table className="w-full text-xs text-left">
-            <thead>
-              <tr className="border-b border-black">
-                <th className="py-1">Item</th>
-                <th className="py-1 text-center">Qtd</th>
-                <th className="py-1 text-right">Unit</th>
-                <th className="py-1 text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {selectedSale.items.map((item, idx) => (
-                <tr key={idx}>
-                  <td className="py-1">{item.product.name.substring(0, 18)}</td>
-                  <td className="py-1 text-center">{item.quantity}</td>
-                  <td className="py-1 text-right">R$ {item.price.toFixed(2)}</td>
-                  <td className="py-1 text-right">R$ {(item.price * item.quantity).toFixed(2)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <div className="border-b border-dashed border-black my-1"></div>
-          {selectedSale.discount > 0 && (
-            <div className="flex justify-between text-sm">
-              <span>Desconto:</span>
-              <span>- R$ {selectedSale.discount.toFixed(2)}</span>
-            </div>
-          )}
-          <div className="flex justify-between font-bold text-sm">
-            <span>TOTAL:</span>
-            <span>R$ {selectedSale.total.toFixed(2)}</span>
-          </div>
-          <div>Forma Pgto: {translatePayment(selectedSale.paymentMethod)}</div>
-          <div className="border-b border-dashed border-black my-2"></div>
-          <div className="text-center mt-4">Comprovante de Venda Não Fiscal</div>
-          <div className="text-center text-[8px]">Sistema PDV Distribuidora</div>
-        </div>
-      )}
-
       {/* Cabeçalho */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
         <div>
@@ -343,7 +318,7 @@ export default function Historico() {
         <div className="flex-1 bg-slate-900/40 border border-slate-800 p-5 rounded-2xl flex items-center justify-between">
           <div>
             <span className="text-xs text-slate-400 uppercase font-bold tracking-wider block mb-1">Vendas (Filtradas)</span>
-            <span className="text-2xl font-black text-white">R$ {(meta.totalRevenue || 0).toFixed(2)}</span>
+            <span className="text-2xl font-black text-white">R$ {formatMoney((meta.totalRevenue || 0))}</span>
           </div>
           <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
             <History className="w-6 h-6 text-blue-400" />
@@ -354,7 +329,7 @@ export default function Historico() {
           <div className="flex-1 bg-slate-900/40 border border-slate-800 p-5 rounded-2xl flex items-center justify-between">
             <div>
               <span className="text-xs text-slate-400 uppercase font-bold tracking-wider block mb-1">Lucro Líquido (Filtrado)</span>
-              <span className="text-2xl font-black text-emerald-400">R$ {(meta.totalProfit || 0).toFixed(2)}</span>
+              <span className="text-2xl font-black text-emerald-400">R$ {formatMoney((meta.totalProfit || 0))}</span>
             </div>
             <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
               <CheckCircle2 className="w-6 h-6 text-emerald-400" />
@@ -415,12 +390,14 @@ export default function Historico() {
                                 Comanda
                               </span>
                             )}
+                            {sale.isRetroactive && <RetroactiveBadge />}
+                            {hasSpecialPrice(sale) && <SpecialPriceBadge />}
                           </td>
                           <td className="px-6 py-4 text-xs text-slate-400">
                             {new Date(sale.createdAt).toLocaleString('pt-BR')}
                           </td>
-                          <td className="px-6 py-4 text-right font-bold text-amber-550">R$ {sale.total.toFixed(2)}</td>
-                          {userRole === 'ADMIN' && <td className="px-6 py-4 text-right font-bold text-emerald-500">R$ {(sale.total - (sale.totalCost || 0)).toFixed(2)}</td>}
+                          <td className="px-6 py-4 text-right font-bold text-amber-550">R$ {formatMoney(sale.total)}</td>
+                          {userRole === 'ADMIN' && <td className="px-6 py-4 text-right font-bold text-emerald-500">R$ {formatMoney((sale.total - (sale.totalCost || 0)))}</td>}
                           <td className="px-6 py-4 text-center text-slate-300 font-semibold">{translatePayment(sale.paymentMethod)}</td>
                           <td className="px-6 py-4 text-center">
                             <span className={`px-2.5 py-0.5 border rounded-full text-[10px] font-bold ${status.class}`}>
@@ -477,6 +454,18 @@ export default function Historico() {
                       {selectedSale.customer.phone && <span className="text-slate-500 ml-1">({selectedSale.customer.phone})</span>}
                     </p>
                   )}
+                  {selectedSale.isRetroactive && (
+                    <p className="text-sky-400 text-xs mt-1.5 font-medium border-l-2 border-sky-500 pl-2 flex items-center gap-1.5">
+                      <BookOpen className="w-3.5 h-3.5" />
+                      Venda antiga lançada do caderno (não alterou estoque nem caixa)
+                    </p>
+                  )}
+                  {hasSpecialPrice(selectedSale) && (
+                    <p className="text-emerald-400 text-xs mt-1.5 font-medium border-l-2 border-emerald-500 pl-2 flex items-center gap-1.5">
+                      <Tag className="w-3.5 h-3.5" />
+                      Venda com preço especial do cliente (não foi usado o preço de portaria)
+                    </p>
+                  )}
                 </div>
                 <button 
                   onClick={() => setSelectedSale(null)}
@@ -495,28 +484,33 @@ export default function Historico() {
                       <div className="min-w-0 flex-1 pr-3">
                         <p className="text-sm font-medium text-white truncate">{item.product.name}</p>
                         <p className="text-xs text-slate-500 mt-0.5">
-                          {item.quantity} x R$ {item.price.toFixed(2)}
+                          {item.quantity} x R$ {formatMoney(item.price)}
+                          {isSpecialPriceItem(item) && (
+                            <span className="ml-2 text-emerald-400">
+                              preço especial <span className="text-slate-600">(portaria <span className="line-through">R$ {formatMoney(item.standardPrice)}</span>)</span>
+                            </span>
+                          )}
                         </p>
                       </div>
                       <span className="font-mono text-sm font-semibold text-white shrink-0 mt-0.5">
-                        R$ {(item.price * item.quantity).toFixed(2)}
+                        R$ {formatMoney((item.price * item.quantity))}
                       </span>
                     </div>
                   ))}
                   {selectedSale.discount > 0 && (
                     <div className="pt-3 pb-1 flex justify-between text-emerald-500 text-sm border-t border-slate-800">
                       <span>Desconto Aplicado:</span>
-                      <span>- R$ {selectedSale.discount.toFixed(2)}</span>
+                      <span>- R$ {formatMoney(selectedSale.discount)}</span>
                     </div>
                   )}
                   <div className={`${selectedSale.discount > 0 ? 'pt-1' : 'pt-3 border-t border-slate-800'} flex justify-between font-bold text-amber-500 text-sm`}>
                     <span>Total do Pedido:</span>
-                    <span>R$ {selectedSale.total.toFixed(2)}</span>
+                    <span>R$ {formatMoney(selectedSale.total)}</span>
                   </div>
                   {userRole === 'ADMIN' && (
                     <div className="flex justify-between font-bold text-emerald-500 text-sm">
                       <span>Lucro Líquido:</span>
-                      <span>R$ {(selectedSale.total - (selectedSale.totalCost || 0)).toFixed(2)}</span>
+                      <span>R$ {formatMoney((selectedSale.total - (selectedSale.totalCost || 0)))}</span>
                     </div>
                   )}
                 </div>

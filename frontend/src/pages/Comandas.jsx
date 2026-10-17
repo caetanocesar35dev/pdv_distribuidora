@@ -1,11 +1,16 @@
 import { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
+import { formatMoney } from '../utils/format';
+import { useConfirmFiado } from '../utils/fiado';
+import CustomerSelect from '../components/CustomerSelect';
+import { buildReceiptHTML, printReceiptHTML } from '../utils/receipt';
 import { 
   Coffee, Plus, X, Search, ShoppingCart, Trash2, CheckCircle2, User, CreditCard, DollarSign, Users, AlertCircle, Printer, MessageCircle
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 
 export default function Comandas() {
+  const confirmFiadoComDivida = useConfirmFiado();
   const [tabs, setTabs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -154,6 +159,28 @@ export default function Comandas() {
     return tab.items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   };
 
+  // Cliente escolhido só no fechamento (comanda sem cliente): busca os preços especiais dele
+  // para mostrar o total correto, pois a venda será recalculada com esses preços.
+  const closeCustomerId = isPaymentModalOpen && activeTab && !activeTab.customerId && paymentMethod === 'CREDIT_STORE'
+    ? newTabCustomer
+    : '';
+  const [closePrices, setClosePrices] = useState({});
+  useEffect(() => {
+    if (!closeCustomerId) {
+      setClosePrices({});
+      return;
+    }
+    let cancelled = false;
+    api.get(`/customers/${closeCustomerId}/prices`)
+      .then(prices => { if (!cancelled) setClosePrices(Object.fromEntries(prices.map(p => [p.productId, p.price]))); })
+      .catch(() => { if (!cancelled) setClosePrices({}); });
+    return () => { cancelled = true; };
+  }, [closeCustomerId]);
+
+  const closeTotal = activeTab?.items
+    ? activeTab.items.reduce((acc, item) => acc + ((closePrices[item.productId] ?? item.price) * item.quantity), 0)
+    : 0;
+
   const handleFinishTab = async () => {
     if (!activeTab || activeTab.items.length === 0) return;
     setIsFinishing(true);
@@ -172,18 +199,14 @@ export default function Comandas() {
       if (isFiado && !activeTab.customerId && newTabCustomer) {
          payload.customerId = Number(newTabCustomer);
       }
+      if (isFiado && !(await confirmFiadoComDivida(payload.customerId || activeTab.customerId))) {
+        return;
+      }
 
       const sale = await api.post(`/command-tabs/${activeTab.id}/close`, payload);
       
-      const fullSale = {
-         ...sale,
-         items: activeTab.items.map(i => ({
-             product: i.product,
-             quantity: i.quantity,
-             price: i.price
-         }))
-      };
-      setSaleResult(fullSale);
+      // Usa os itens da venda gerada (com os preços realmente cobrados, inclusive preço especial)
+      setSaleResult(sale);
       
       const targetCustomerId = payload.customerId || activeTab.customerId;
       const customerObj = customers.find(c => c.id === Number(targetCustomerId));
@@ -205,74 +228,12 @@ export default function Comandas() {
     }
   };
 
-  const generateReceiptHTML = () => {
-    if (!saleResult) return '';
-    const cnpj = import.meta.env.VITE_COMPANY_CNPJ || '00.000.000/0001-00';
-    let itemsHTML = saleResult.items.map(item => `
-      <tr>
-        <td style="padding:2px 0">${item.product.name.substring(0, 20)}</td>
-        <td style="padding:2px 0;text-align:center">${item.quantity}</td>
-        <td style="padding:2px 0;text-align:right">R$ ${item.price.toFixed(2)}</td>
-        <td style="padding:2px 0;text-align:right">R$ ${(item.price * item.quantity).toFixed(2)}</td>
-      </tr>
-    `).join('');
+  // Comprovante no tamanho da bobina configurada (VITE_RECEIPT_WIDTH: 58 ou 80 mm)
+  const generateReceiptHTML = () => buildReceiptHTML(saleResult, {
+    customerName: customers.find(c => c.id === saleResult?.customerId)?.name,
+  });
 
-    return `
-      <div style="width:72mm;font-family:monospace;font-size:12px;color:#000;padding:8px;">
-        <div style="text-align:center;font-weight:bold;font-size:14px;margin-bottom:4px;">DISTRIBUIDORA DE BEBIDAS</div>
-        <div style="text-align:center;margin-bottom:8px;">CNPJ: ${cnpj}</div>
-        <hr style="border:none;border-top:1px dashed #000;margin:4px 0;">
-        <div>COMPROVANTE NÃO FISCAL</div>
-        <div>Pedido: #${saleResult.id}</div>
-        <div>Data/Hora: ${new Date(saleResult.createdAt).toLocaleString('pt-BR')}</div>
-        <hr style="border:none;border-top:1px dashed #000;margin:4px 0;">
-        <table style="width:100%;font-size:11px;border-collapse:collapse;">
-          <thead>
-            <tr style="border-bottom:1px solid #000;">
-              <th style="text-align:left;padding:2px 0;">Item</th>
-              <th style="text-align:center;padding:2px 0;">Qtd</th>
-              <th style="text-align:right;padding:2px 0;">Unit</th>
-              <th style="text-align:right;padding:2px 0;">Total</th>
-            </tr>
-          </thead>
-          <tbody>${itemsHTML}</tbody>
-        </table>
-        <hr style="border:none;border-top:1px dashed #000;margin:4px 0;">
-        ${saleResult.discount > 0 ? `<div style="display:flex;justify-content:space-between;"><span>Desconto:</span><span>- R$ ${saleResult.discount.toFixed(2)}</span></div>` : ''}
-        <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:14px;">
-          <span>TOTAL:</span>
-          <span>R$ ${saleResult.total.toFixed(2)}</span>
-        </div>
-        <div>Forma Pgto: ${translatePayment(saleResult.paymentMethod)}</div>
-        <hr style="border:none;border-top:1px dashed #000;margin:8px 0;">
-        <div style="text-align:center;margin-top:8px;">Obrigado pela preferência!</div>
-        <div style="text-align:center;font-size:8px;">Sistema PDV Distribuidora</div>
-      </div>
-    `;
-  };
-
-  const printReceipt = () => {
-    const receiptHTML = generateReceiptHTML();
-    const printWindow = window.open('', '_blank', 'width=400,height=600');
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Comprovante</title>
-          <style>
-            body { margin: 0; padding: 0; }
-            @page { size: 80mm auto; margin: 0; }
-          </style>
-        </head>
-        <body>${receiptHTML}</body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 300);
-  };
+  const printReceipt = () => printReceiptHTML(generateReceiptHTML());
 
   const formatPhoneMask = (value) => {
     let v = value.replace(/\D/g, '');
@@ -294,6 +255,7 @@ export default function Comandas() {
     tempDiv.style.left = '-9999px';
     tempDiv.style.top = '0';
     tempDiv.style.background = 'white';
+    tempDiv.style.padding = '12px';
     tempDiv.innerHTML = generateReceiptHTML();
     document.body.appendChild(tempDiv);
 
@@ -412,7 +374,7 @@ export default function Comandas() {
                     </div>
                     <div className="text-right">
                       <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wider mb-0.5">Total</div>
-                      <div className="text-xl font-bold text-white tracking-tight">R$ {total.toFixed(2)}</div>
+                      <div className="text-xl font-bold text-white tracking-tight">R$ {formatMoney(total)}</div>
                     </div>
                   </div>
                 </div>
@@ -452,16 +414,13 @@ export default function Comandas() {
 
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Cliente (Opcional - Fiado)</label>
-                <select
+                <CustomerSelect
+                  customers={customers}
                   value={newTabCustomer}
-                  onChange={(e) => setNewTabCustomer(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all"
-                >
-                  <option value="">Nenhum</option>
-                  {customers.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
+                  onChange={setNewTabCustomer}
+                  placeholder="Nenhum (digite para buscar)"
+                  className="py-3 bg-slate-950 border border-slate-800 rounded-xl"
+                />
               </div>
 
               <div className="pt-4">
@@ -535,7 +494,7 @@ export default function Comandas() {
                       <option value="">Buscar produto na lista...</option>
                       {products.map(p => (
                         <option key={p.id} value={p.id} disabled={p.stock <= 0}>
-                          {p.name} (R$ {p.price.toFixed(2)}) - Est: {p.stock}
+                          {p.name} (R$ {formatMoney(p.price)}) - Est: {p.stock}
                         </option>
                       ))}
                     </select>
@@ -561,10 +520,10 @@ export default function Comandas() {
                       <div key={item.id} className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex items-center justify-between group">
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-white truncate">{item.product.name}</p>
-                          <p className="text-xs text-slate-500 mt-0.5">1x R$ {item.price.toFixed(2)}</p>
+                          <p className="text-xs text-slate-500 mt-0.5">1x R$ {formatMoney(item.price)}</p>
                         </div>
                         <div className="flex items-center gap-4">
-                          <p className="font-bold text-amber-500 text-sm shrink-0">R$ {item.price.toFixed(2)}</p>
+                          <p className="font-bold text-amber-500 text-sm shrink-0">R$ {formatMoney(item.price)}</p>
                           <button
                             onClick={() => removeItem(item.id)}
                             className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
@@ -597,7 +556,7 @@ export default function Comandas() {
                   
                   <div className="border-t border-slate-800 pt-6">
                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Total a Pagar</p>
-                    <h3 className="text-4xl font-black text-white tracking-tight">R$ {calculateTotal(activeTab).toFixed(2)}</h3>
+                    <h3 className="text-4xl font-black text-white tracking-tight">R$ {formatMoney(calculateTotal(activeTab))}</h3>
                   </div>
                 </div>
 
@@ -633,7 +592,14 @@ export default function Comandas() {
               {/* Resumo Valores */}
               <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 flex justify-between items-center">
                 <span className="text-slate-400 font-semibold uppercase text-xs tracking-wider">Total Consumido:</span>
-                <span className="text-2xl font-black text-amber-500">R$ {calculateTotal(activeTab).toFixed(2)}</span>
+                <div className="text-right">
+                  <span className="text-2xl font-black text-amber-500">R$ {formatMoney(closeTotal)}</span>
+                  {Math.abs(closeTotal - calculateTotal(activeTab)) > 0.0005 && (
+                    <p className="text-[11px] text-emerald-400 mt-0.5">
+                      Preço especial do cliente aplicado <span className="line-through text-slate-500">R$ {formatMoney(calculateTotal(activeTab))}</span>
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Formas de Pagamento */}
@@ -673,16 +639,21 @@ export default function Comandas() {
                   <label className="block text-xs font-semibold text-amber-400 mb-2 uppercase tracking-wider">
                     Cliente do Fiado <span className="text-red-400">*</span>
                   </label>
-                  <select
-                    value={newTabCustomer || (activeTab.customer?.id || '')}
-                    onChange={(e) => setNewTabCustomer(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500"
-                  >
-                    <option value="">Selecione o Cliente...</option>
-                    {customers.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
+                  {activeTab.customerId ? (
+                    // Comanda já aberta com cliente: o fiado vai para ele (preços já aplicados nos itens)
+                    <div className="flex items-center gap-2 px-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-sm text-white">
+                      <Users className="w-4 h-4 text-amber-500" />
+                      {activeTab.customer?.name || 'Cliente da comanda'}
+                    </div>
+                  ) : (
+                    <CustomerSelect
+                      customers={customers}
+                      value={newTabCustomer}
+                      onChange={setNewTabCustomer}
+                      placeholder="Digite o nome do cliente..."
+                      className="py-2 bg-slate-900 border border-slate-800 rounded-lg"
+                    />
+                  )}
                 </div>
               )}
 
@@ -694,7 +665,7 @@ export default function Comandas() {
                 <input
                   type="number"
                   min="0"
-                  step="0.01"
+                  step="0.001"
                   value={discount}
                   onChange={(e) => setDiscount(e.target.value)}
                   placeholder="0.00"
@@ -762,19 +733,19 @@ export default function Comandas() {
                   {saleResult.items.map((item, idx) => (
                     <div key={idx} className="flex justify-between text-slate-450">
                       <span>{item.product.name.substring(0, 20)} x{item.quantity}</span>
-                      <span>R$ {(item.price * item.quantity).toFixed(2)}</span>
+                      <span>R$ {formatMoney((item.price * item.quantity))}</span>
                     </div>
                   ))}
                 </div>
                 {saleResult.discount > 0 && (
                   <div className="flex justify-between text-emerald-400 text-xs pt-1 border-t border-slate-800/60">
                     <span>Desconto:</span>
-                    <span>- R$ {saleResult.discount.toFixed(2)}</span>
+                    <span>- R$ {formatMoney(saleResult.discount)}</span>
                   </div>
                 )}
                 <div className="border-t border-slate-800 pt-2 flex justify-between font-bold text-amber-500 text-sm">
                   <span>Total:</span>
-                  <span>R$ {saleResult.total.toFixed(2)}</span>
+                  <span>R$ {formatMoney(saleResult.total)}</span>
                 </div>
               </div>
 

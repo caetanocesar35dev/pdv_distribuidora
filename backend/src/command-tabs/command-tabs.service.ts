@@ -68,13 +68,20 @@ export class CommandTabsService {
         data: { stock: product.stock - quantity }
       });
 
+      // Se a comanda tem cliente, usa o preço especial dele (se houver)
+      const special = tab.customerId
+        ? await tx.customerProductPrice.findUnique({
+            where: { customerId_productId: { customerId: tab.customerId, productId } },
+          })
+        : null;
+
       // Add item to tab
       return tx.commandItem.create({
         data: {
           commandTabId: tabId,
           productId,
           quantity,
-          price: product.price,
+          price: special?.price ?? product.price,
           costPrice: product.costPrice
         },
         include: { product: true }

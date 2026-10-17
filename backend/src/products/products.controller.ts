@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards, UseInterceptors } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { AuthGuard } from '../auth/auth.guard';
+import { AdminGuard } from '../auth/admin.guard';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { AuditInterceptor } from '../interceptors/audit.interceptor';
@@ -31,7 +32,8 @@ export class ProductsController {
     return this.productsService.create(body);
   }
 
-  @UseGuards(AuthGuard)
+  // Edição (inclusive ajuste manual de estoque) e exclusão: somente administradores
+  @UseGuards(AuthGuard, AdminGuard)
   @UseInterceptors(AuditInterceptor)
   @Patch(':id')
   async update(
@@ -48,7 +50,7 @@ export class ProductsController {
     return this.productsService.addStock(Number(id), body.quantity, body.modifierId, body.modifiedEndpoint);
   }
 
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, AdminGuard)
   @Delete(':id')
   async remove(@Param('id') id: string) {
     return this.productsService.remove(Number(id));

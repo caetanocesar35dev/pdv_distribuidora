@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsNumber, IsOptional, Min } from 'class-validator';
+import { IsString, IsNotEmpty, IsNumber, IsOptional, Min, IsArray } from 'class-validator';
 
 export class CreateProductDto {
   @IsString()
@@ -26,4 +26,9 @@ export class CreateProductDto {
   @IsOptional()
   @IsNumber()
   bottleTypeId?: number | null;
+
+  // Preços especiais por cliente. Quando enviado, substitui todos os preços especiais do produto.
+  @IsOptional()
+  @IsArray()
+  customerPrices?: { customerId: number; price: number }[];
 }

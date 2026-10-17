@@ -49,6 +49,14 @@ export class CustomersService {
     return customer;
   }
 
+  // Preços especiais do cliente (produtos sem registro usam o preço de portaria)
+  async getProductPrices(customerId: number) {
+    return this.prisma.customerProductPrice.findMany({
+      where: { customerId },
+      select: { productId: true, price: true },
+    });
+  }
+
   async update(id: number, data: { name?: string; phone?: string }) {
     return this.prisma.customer.update({
       where: { id },
