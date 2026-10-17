@@ -1,13 +1,26 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
+import { formatMoney } from '../utils/format';
+import { useConfirmFiado } from '../utils/fiado';
 import {
   Search, Plus, Minus, Trash2, ShoppingCart,
-  DollarSign, CheckCircle2, AlertCircle, Printer, X, CreditCard, Users, MessageCircle, Beer
+  DollarSign, CheckCircle2, AlertCircle, Printer, X, CreditCard, Users, MessageCircle, Beer, Package
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 
+// Converte a quantidade em unidades para fardos/caixas + unidades avulsas (ex: "2 fardos + 3 un.")
+const formatPacks = (quantity, packQuantity) => {
+  const packs = Math.floor(quantity / packQuantity);
+  const loose = quantity % packQuantity;
+  const parts = [];
+  if (packs > 0) parts.push(`${packs} ${packs === 1 ? 'fardo' : 'fardos'}`);
+  if (loose > 0) parts.push(`${loose} un.`);
+  return parts.join(' + ');
+};
+
 export default function PDV() {
+  const confirmFiadoComDivida = useConfirmFiado();
   const navigate = useNavigate();
   const [cashRegister, setCashRegister] = useState(null);
   const [loadingCash, setLoadingCash] = useState(true);
@@ -255,6 +268,10 @@ export default function PDV() {
         return;
       }
 
+      if (paymentMethod === 'CREDIT_STORE' && !(await confirmFiadoComDivida(Number(selectedCustomer)))) {
+        return;
+      }
+
       const payloadMovements = returnedBottles.map(rb => ({
         bottleTypeId: rb.bottleTypeId,
         quantity: rb.quantity,
@@ -310,8 +327,8 @@ export default function PDV() {
       <tr>
         <td style="padding:2px 0">${item.product.name.substring(0, 20)}</td>
         <td style="padding:2px 0;text-align:center">${item.quantity}</td>
-        <td style="padding:2px 0;text-align:right">R$ ${item.price.toFixed(2)}</td>
-        <td style="padding:2px 0;text-align:right">R$ ${(item.price * item.quantity).toFixed(2)}</td>
+        <td style="padding:2px 0;text-align:right">R$ ${formatMoney(item.price)}</td>
+        <td style="padding:2px 0;text-align:right">R$ ${formatMoney((item.price * item.quantity))}</td>
       </tr>
     `).join('');
 
@@ -336,10 +353,10 @@ export default function PDV() {
           <tbody>${itemsHTML}</tbody>
         </table>
         <hr style="border:none;border-top:1px dashed #000;margin:4px 0;">
-        ${saleResult.discount > 0 ? `<div style="display:flex;justify-content:space-between;"><span>Desconto:</span><span>- R$ ${saleResult.discount.toFixed(2)}</span></div>` : ''}
+        ${saleResult.discount > 0 ? `<div style="display:flex;justify-content:space-between;"><span>Desconto:</span><span>- R$ ${formatMoney(saleResult.discount)}</span></div>` : ''}
         <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:14px;">
           <span>TOTAL:</span>
-          <span>R$ ${saleResult.total.toFixed(2)}</span>
+          <span>R$ ${formatMoney(saleResult.total)}</span>
         </div>
         <div>Forma Pgto: ${translatePayment(saleResult.paymentMethod)}</div>
         <hr style="border:none;border-top:1px dashed #000;margin:8px 0;">
@@ -465,7 +482,7 @@ export default function PDV() {
 
 
   return (
-    <div className="flex-1 p-6 font-sans text-white h-[calc(100vh-64px)] flex flex-col gap-6 overflow-hidden">
+    <div className="flex-1 p-6 font-sans text-white h-full flex flex-col gap-6 overflow-y-auto">
         <div className="flex justify-between items-center shrink-0">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -490,8 +507,9 @@ export default function PDV() {
         </div>
       )}
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-hidden min-h-0">
-        <div className="lg:col-span-2 flex flex-col gap-4 overflow-hidden min-h-0">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start shrink-0">
+        {/* Coluna do carrinho fica fixa na tela enquanto a página rola */}
+        <div className="lg:col-span-2 flex flex-col gap-4 overflow-hidden h-[70vh] lg:h-[calc(100vh-9rem)] lg:sticky lg:top-0">
           <div className="bg-slate-900/40 border border-slate-800 p-4 rounded-2xl flex flex-col md:flex-row gap-4 shrink-0">
             <form onSubmit={handleAddByCode} className="flex-1 flex gap-2">
               <div className="relative flex-1">
@@ -537,7 +555,7 @@ export default function PDV() {
               <datalist id="products-datalist">
                 {products.map(p => (
                   <option key={p.id} value={p.name}>
-                    Estoque: {p.stock} - R$ {p.price.toFixed(2)}
+                    Estoque: {p.stock} - R$ {formatMoney(p.price)}
                   </option>
                 ))}
               </datalist>
@@ -587,12 +605,19 @@ export default function PDV() {
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-sm text-white truncate">{item.product.name}</p>
                       <p className="text-slate-500 text-xs mt-1 font-mono">Cód: {item.product.code}</p>
+                      {item.product.packQuantity > 1 && Number(item.quantity) > 0 && (
+                        <div className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-semibold">
+                          <Package className="w-3.5 h-3.5" />
+                          <span>{formatPacks(Number(item.quantity), Number(item.product.packQuantity))}</span>
+                          <span className="text-amber-500/60 font-normal">(fardo c/ {item.product.packQuantity})</span>
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-6">
                       <div className="text-right shrink-0">
                         <p className="text-xs text-slate-500">Subtotal</p>
-                        <p className="font-bold text-sm text-amber-500 mt-0.5">R$ {(item.product.price * item.quantity).toFixed(2)}</p>
+                        <p className="font-bold text-sm text-amber-500 mt-0.5">R$ {formatMoney((item.product.price * item.quantity))}</p>
                       </div>
 
                       <div className="flex flex-col items-center gap-1">
@@ -651,22 +676,22 @@ export default function PDV() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-6 overflow-hidden min-h-0">
-          <div className="bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between shrink-0 shadow-lg">
+        <div className="flex flex-col gap-6">
+          <div className="bg-linear-to-br from-slate-900 to-slate-950 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between shrink-0 shadow-lg">
             <div>
               <p className="text-slate-400 text-xs font-semibold uppercase tracking-wider">Valor da Compra</p>
               <div className="flex justify-between items-end mt-2">
                 <span className="text-slate-500 text-sm">Subtotal:</span>
-                <span className="text-slate-300">R$ {cartTotal.toFixed(2)}</span>
+                <span className="text-slate-300">R$ {formatMoney(cartTotal)}</span>
               </div>
               {discountValue > 0 && (
                 <div className="flex justify-between items-end mt-1 text-emerald-500">
                   <span className="text-xs">Desconto:</span>
-                  <span className="text-sm">- R$ {discountValue.toFixed(2)}</span>
+                  <span className="text-sm">- R$ {formatMoney(discountValue)}</span>
                 </div>
               )}
               <h2 className="text-4xl font-extrabold text-white mt-2 tracking-tight border-t border-slate-800 pt-2">
-                R$ {finalTotal.toFixed(2)}
+                R$ {formatMoney(finalTotal)}
               </h2>
             </div>
             <div className="h-px bg-slate-800 my-4"></div>
@@ -682,8 +707,8 @@ export default function PDV() {
             </div>
           </div>
 
-          <div className="flex-1 bg-slate-900/40 border border-slate-800 rounded-2xl p-6 flex flex-col justify-between min-h-0 overflow-y-auto">
-            <div className="space-y-4">
+          <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-6 flex flex-col">
+            <div className="space-y-5">
               <h3 className="font-semibold text-xs uppercase tracking-wider text-slate-400">Forma de Pagamento</h3>
               <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-3">
                 {[
@@ -734,7 +759,7 @@ export default function PDV() {
                 <input
                   type="number"
                   min="0"
-                  step="0.01"
+                  step="0.001"
                   value={discount}
                   onChange={(e) => setDiscount(e.target.value.replace(',', '.'))}
                   placeholder="0.00"
@@ -889,19 +914,19 @@ export default function PDV() {
                   {saleResult.items.map((item, idx) => (
                     <div key={idx} className="flex justify-between text-slate-450">
                       <span>{item.product.name.substring(0, 20)} x{item.quantity}</span>
-                      <span>R$ {(item.price * item.quantity).toFixed(2)}</span>
+                      <span>R$ {formatMoney((item.price * item.quantity))}</span>
                     </div>
                   ))}
                 </div>
                 {saleResult.discount > 0 && (
                   <div className="flex justify-between text-emerald-400 text-xs pt-1 border-t border-slate-800/60">
                     <span>Desconto:</span>
-                    <span>- R$ {saleResult.discount.toFixed(2)}</span>
+                    <span>- R$ {formatMoney(saleResult.discount)}</span>
                   </div>
                 )}
                 <div className="border-t border-slate-800 pt-2 flex justify-between font-bold text-amber-500 text-sm">
                   <span>Total:</span>
-                  <span>R$ {saleResult.total.toFixed(2)}</span>
+                  <span>R$ {formatMoney(saleResult.total)}</span>
                 </div>
               </div>
 

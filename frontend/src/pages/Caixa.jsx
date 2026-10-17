@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { formatMoney } from '../utils/format';
 import {
   TrendingUp, TrendingDown, DollarSign, Lock, Unlock,
   ArrowUpRight, ArrowDownRight, History, Calendar, CheckCircle2, AlertTriangle
@@ -11,7 +12,7 @@ export default function Caixa() {
   const [history, setHistory] = useState([]);
 
   // States para formulários
-  const [initialBalance, setInitialBalance] = useState('0.00');
+  const [initialBalance, setInitialBalance] = useState('0.000');
   const [movementType, setMovementType] = useState('IN');
   const [movementAmount, setMovementAmount] = useState('');
   const [movementDesc, setMovementDesc] = useState('');
@@ -55,7 +56,7 @@ export default function Caixa() {
       });
       setSuccess('Caixa aberto com sucesso!');
       setCurrentCash(data);
-      setInitialBalance('0.00');
+      setInitialBalance('0.000');
       loadCashData();
     } catch (err) {
       setError(err.message || 'Erro ao abrir o caixa');
@@ -182,7 +183,7 @@ export default function Caixa() {
                   <label className="block text-slate-350 text-xs font-semibold uppercase tracking-wider mb-2">Fundo de Troco (R$)</label>
                   <input
                     type="number"
-                    step="0.01"
+                    step="0.001"
                     min="0"
                     value={initialBalance}
                     onChange={(e) => {
@@ -208,12 +209,12 @@ export default function Caixa() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 p-5 rounded-2xl shadow-md">
                   <p className="text-slate-400 text-xs font-semibold uppercase tracking-wide">Fundo Inicial</p>
-                  <p className="text-2xl font-bold text-slate-300 mt-2">R$ {currentCash.initialBalance.toFixed(2)}</p>
+                  <p className="text-2xl font-bold text-slate-300 mt-2">R$ {formatMoney(currentCash.initialBalance)}</p>
                 </div>
 
                 <div className="bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 p-5 rounded-2xl shadow-md">
                   <p className="text-slate-400 text-xs font-semibold uppercase tracking-wide">Saldo Atual</p>
-                  <p className="text-2xl font-bold text-amber-500 mt-2">R$ {currentBalance.toFixed(2)}</p>
+                  <p className="text-2xl font-bold text-amber-500 mt-2">R$ {formatMoney(currentBalance)}</p>
                 </div>
 
                 <div className="bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 p-5 rounded-2xl shadow-md flex flex-col justify-between">
@@ -267,7 +268,7 @@ export default function Caixa() {
                           </div>
                           <span className={`font-mono text-sm font-bold ${isSale || isAddition ? 'text-emerald-400' : 'text-red-400'
                             }`}>
-                            {isSale || isAddition ? '+' : '-'} R$ {mov.amount.toFixed(2)}
+                            {isSale || isAddition ? '+' : '-'} R$ {formatMoney(mov.amount)}
                           </span>
                         </div>
                       );
@@ -325,7 +326,7 @@ export default function Caixa() {
                 <label className="block text-slate-355 text-xs font-semibold uppercase tracking-wider mb-2">Valor (R$)</label>
                 <input
                   type="number"
-                  step="0.01"
+                  step="0.001"
                   min="0"
                   value={movementAmount}
                   onChange={(e) => {
@@ -389,11 +390,11 @@ export default function Caixa() {
                 <div className="grid grid-cols-2 gap-4 bg-slate-900/50 p-3 rounded-lg text-xs">
                   <div>
                     <span className="text-slate-500 block">Fundo Inicial</span>
-                    <span className="font-semibold text-slate-350">R$ {box.initialBalance.toFixed(2)}</span>
+                    <span className="font-semibold text-slate-350">R$ {formatMoney(box.initialBalance)}</span>
                   </div>
                   <div>
                     <span className="text-slate-500 block">Saldo Final</span>
-                    <span className="font-semibold text-emerald-400">R$ {box.finalBalance?.toFixed(2) || '0.00'}</span>
+                    <span className="font-semibold text-emerald-400">R$ {formatMoney(box.finalBalance)}</span>
                   </div>
                 </div>
               </div>

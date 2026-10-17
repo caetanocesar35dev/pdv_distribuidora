@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { formatMoney } from '../utils/format';
 import { 
   TrendingUp, TrendingDown, DollarSign, Package, 
   ShoppingCart, AlertTriangle, Users, BarChart3
@@ -60,7 +61,7 @@ export default function Dashboard() {
           <div className="flex justify-between items-start mb-4 relative">
             <div>
               <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Vendas Hoje</p>
-              <h3 className="text-2xl font-black text-white mt-1">R$ {today.revenue.toFixed(2)}</h3>
+              <h3 className="text-2xl font-black text-white mt-1">R$ {formatMoney(today.revenue)}</h3>
             </div>
             <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
               <DollarSign className="w-5 h-5 text-emerald-400" />
@@ -68,7 +69,7 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center gap-2 text-xs relative">
             <span className="text-emerald-400 font-bold flex items-center">
-              <TrendingUp className="w-3 h-3 mr-1" /> Lucro: R$ {today.profit.toFixed(2)}
+              <TrendingUp className="w-3 h-3 mr-1" /> Lucro: R$ {formatMoney(today.profit)}
             </span>
             <span className="text-slate-500">• {today.count} vendas</span>
           </div>
@@ -80,7 +81,7 @@ export default function Dashboard() {
           <div className="flex justify-between items-start mb-4 relative">
             <div>
               <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Últimos 7 Dias</p>
-              <h3 className="text-2xl font-black text-white mt-1">R$ {week.revenue.toFixed(2)}</h3>
+              <h3 className="text-2xl font-black text-white mt-1">R$ {formatMoney(week.revenue)}</h3>
             </div>
             <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
               <ShoppingCart className="w-5 h-5 text-amber-400" />
@@ -88,7 +89,7 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center gap-2 text-xs relative">
             <span className="text-amber-400 font-bold flex items-center">
-              <TrendingUp className="w-3 h-3 mr-1" /> Lucro: R$ {week.profit.toFixed(2)}
+              <TrendingUp className="w-3 h-3 mr-1" /> Lucro: R$ {formatMoney(week.profit)}
             </span>
             <span className="text-slate-500">• {week.count} vendas</span>
           </div>
@@ -100,7 +101,7 @@ export default function Dashboard() {
           <div className="flex justify-between items-start mb-4 relative">
             <div>
               <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Mês Atual</p>
-              <h3 className="text-2xl font-black text-white mt-1">R$ {month.revenue.toFixed(2)}</h3>
+              <h3 className="text-2xl font-black text-white mt-1">R$ {formatMoney(month.revenue)}</h3>
             </div>
             <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
               <TrendingUp className="w-5 h-5 text-blue-400" />
@@ -108,7 +109,7 @@ export default function Dashboard() {
           </div>
           <div className="flex items-center gap-2 text-xs relative">
             <span className="text-blue-400 font-bold">
-              Lucro: R$ {month.profit.toFixed(2)}
+              Lucro: R$ {formatMoney(month.profit)}
             </span>
             <span className="text-slate-500">• {month.count} vendas</span>
           </div>
@@ -120,7 +121,7 @@ export default function Dashboard() {
           <div className="flex justify-between items-start mb-4 relative">
             <div>
               <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Contas a Receber (Fiado)</p>
-              <h3 className="text-2xl font-black text-white mt-1">R$ {debt.toFixed(2)}</h3>
+              <h3 className="text-2xl font-black text-white mt-1">R$ {formatMoney(debt)}</h3>
             </div>
             <div className="w-10 h-10 rounded-xl bg-rose-500/20 flex items-center justify-center">
               <Users className="w-5 h-5 text-rose-400" />
@@ -162,7 +163,7 @@ export default function Dashboard() {
                 <Tooltip 
                   contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '12px', fontSize: '13px' }}
                   itemStyle={{ color: '#f8fafc' }}
-                  formatter={(value) => [`R$ ${value.toFixed(2)}`, '']}
+                  formatter={(value) => [`R$ ${formatMoney(value)}`, '']}
                 />
                 <Area type="monotone" name="Receita" dataKey="revenue" stroke="#f59e0b" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" />
                 <Area type="monotone" name="Lucro Líquido" dataKey="profit" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorProfit)" />

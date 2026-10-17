@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { formatMoney } from '../utils/format';
 import { useForm } from 'react-hook-form';
 import { 
   Package, Plus, Edit3, Trash2, ArrowUpRight, Search, 
@@ -245,8 +246,8 @@ export default function Estoque() {
                       <tr key={product.id} className="hover:bg-slate-900/10 transition-colors">
                         <td className="px-6 py-4 font-mono text-xs text-slate-450">{product.code}</td>
                         <td className="px-6 py-4 font-semibold text-white">{product.name}</td>
-                        <td className="px-6 py-4 text-right font-bold text-amber-500">R$ {product.price.toFixed(2)}</td>
-                        <td className="px-6 py-4 text-right font-bold text-slate-400">R$ {(product.costPrice || 0).toFixed(2)}</td>
+                        <td className="px-6 py-4 text-right font-bold text-amber-500">R$ {formatMoney(product.price)}</td>
+                        <td className="px-6 py-4 text-right font-bold text-slate-400">R$ {formatMoney((product.costPrice || 0))}</td>
                         <td className="px-6 py-4 text-center text-slate-400 text-xs">{product.packQuantity > 1 ? `${product.packQuantity} un.` : '-'}</td>
                         <td className="px-6 py-4 text-center">
                           <div className="flex flex-col items-center justify-center gap-1.5">
@@ -327,9 +328,9 @@ export default function Estoque() {
                   <label className="block text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">Preço Venda (R$)</label>
                   <input
                     type="number"
-                    step="0.01"
-                    min="0.01"
-                    {...register('price', { required: 'Preço é obrigatório', min: { value: 0.01, message: 'Preço deve ser maior que zero' } })}
+                    step="0.001"
+                    min="0.001"
+                    {...register('price', { required: 'Preço é obrigatório', min: { value: 0.001, message: 'Preço deve ser maior que zero' } })}
                     placeholder="4.50"
                     className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-650 focus:outline-none focus:border-amber-500 transition-colors text-sm"
                   />
@@ -340,7 +341,7 @@ export default function Estoque() {
                   <label className="block text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">Preço Custo (R$)</label>
                   <input
                     type="number"
-                    step="0.01"
+                    step="0.001"
                     min="0"
                     {...register('costPrice', { required: 'Custo é obrigatório', min: { value: 0, message: 'Custo não pode ser negativo' } })}
                     placeholder="2.00"
@@ -437,9 +438,9 @@ export default function Estoque() {
                   <label className="block text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">Preço Venda (R$)</label>
                   <input
                     type="number"
-                    step="0.01"
-                    min="0.01"
-                    {...register('price', { required: 'Preço é obrigatório', min: { value: 0.01, message: 'Preço deve ser maior que zero' } })}
+                    step="0.001"
+                    min="0.001"
+                    {...register('price', { required: 'Preço é obrigatório', min: { value: 0.001, message: 'Preço deve ser maior que zero' } })}
                     className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500 transition-colors text-sm"
                   />
                   {errors.price && <span className="text-red-400 text-xs mt-1 block">{errors.price.message}</span>}
@@ -449,7 +450,7 @@ export default function Estoque() {
                   <label className="block text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">Preço Custo (R$)</label>
                   <input
                     type="number"
-                    step="0.01"
+                    step="0.001"
                     min="0"
                     {...register('costPrice', { required: 'Custo é obrigatório', min: { value: 0, message: 'Custo não pode ser negativo' } })}
                     className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500 transition-colors text-sm"
@@ -539,7 +540,7 @@ export default function Estoque() {
                 <input
                   type="number"
                   step="any"
-                  {...register('quantity', { required: 'Defina a quantidade de entrada', min: { value: 0.01, message: 'A quantidade deve ser maior que zero' } })}
+                  {...register('quantity', { required: 'Defina a quantidade de entrada', min: { value: 0.001, message: 'A quantidade deve ser maior que zero' } })}
                   placeholder={isPackEntry ? "Ex: 10.5 (fardos)" : "Ex: 24 (unidades)"}
                   className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white placeholder-slate-655 focus:outline-none focus:border-amber-500 transition-colors text-sm"
                 />

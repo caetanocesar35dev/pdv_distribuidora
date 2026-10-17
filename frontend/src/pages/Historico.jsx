@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
+import { formatMoney } from '../utils/format';
 import { 
   History, Search, Printer, XSquare, AlertTriangle, CheckCircle2, 
   Calendar, Info, X, ChevronRight, Coffee
@@ -183,8 +184,8 @@ export default function Historico() {
                 <tr key={idx}>
                   <td className="py-1">{item.product.name.substring(0, 18)}</td>
                   <td className="py-1 text-center">{item.quantity}</td>
-                  <td className="py-1 text-right">R$ {item.price.toFixed(2)}</td>
-                  <td className="py-1 text-right">R$ {(item.price * item.quantity).toFixed(2)}</td>
+                  <td className="py-1 text-right">R$ {formatMoney(item.price)}</td>
+                  <td className="py-1 text-right">R$ {formatMoney((item.price * item.quantity))}</td>
                 </tr>
               ))}
             </tbody>
@@ -194,12 +195,12 @@ export default function Historico() {
           {selectedSale.discount > 0 && (
             <div className="flex justify-between text-sm">
               <span>Desconto:</span>
-              <span>- R$ {selectedSale.discount.toFixed(2)}</span>
+              <span>- R$ {formatMoney(selectedSale.discount)}</span>
             </div>
           )}
           <div className="flex justify-between font-bold text-sm">
             <span>TOTAL:</span>
-            <span>R$ {selectedSale.total.toFixed(2)}</span>
+            <span>R$ {formatMoney(selectedSale.total)}</span>
           </div>
           <div>Forma Pgto: {translatePayment(selectedSale.paymentMethod)}</div>
           <div className="border-b border-dashed border-black my-2"></div>
@@ -343,7 +344,7 @@ export default function Historico() {
         <div className="flex-1 bg-slate-900/40 border border-slate-800 p-5 rounded-2xl flex items-center justify-between">
           <div>
             <span className="text-xs text-slate-400 uppercase font-bold tracking-wider block mb-1">Vendas (Filtradas)</span>
-            <span className="text-2xl font-black text-white">R$ {(meta.totalRevenue || 0).toFixed(2)}</span>
+            <span className="text-2xl font-black text-white">R$ {formatMoney((meta.totalRevenue || 0))}</span>
           </div>
           <div className="w-12 h-12 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
             <History className="w-6 h-6 text-blue-400" />
@@ -354,7 +355,7 @@ export default function Historico() {
           <div className="flex-1 bg-slate-900/40 border border-slate-800 p-5 rounded-2xl flex items-center justify-between">
             <div>
               <span className="text-xs text-slate-400 uppercase font-bold tracking-wider block mb-1">Lucro Líquido (Filtrado)</span>
-              <span className="text-2xl font-black text-emerald-400">R$ {(meta.totalProfit || 0).toFixed(2)}</span>
+              <span className="text-2xl font-black text-emerald-400">R$ {formatMoney((meta.totalProfit || 0))}</span>
             </div>
             <div className="w-12 h-12 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
               <CheckCircle2 className="w-6 h-6 text-emerald-400" />
@@ -419,8 +420,8 @@ export default function Historico() {
                           <td className="px-6 py-4 text-xs text-slate-400">
                             {new Date(sale.createdAt).toLocaleString('pt-BR')}
                           </td>
-                          <td className="px-6 py-4 text-right font-bold text-amber-550">R$ {sale.total.toFixed(2)}</td>
-                          {userRole === 'ADMIN' && <td className="px-6 py-4 text-right font-bold text-emerald-500">R$ {(sale.total - (sale.totalCost || 0)).toFixed(2)}</td>}
+                          <td className="px-6 py-4 text-right font-bold text-amber-550">R$ {formatMoney(sale.total)}</td>
+                          {userRole === 'ADMIN' && <td className="px-6 py-4 text-right font-bold text-emerald-500">R$ {formatMoney((sale.total - (sale.totalCost || 0)))}</td>}
                           <td className="px-6 py-4 text-center text-slate-300 font-semibold">{translatePayment(sale.paymentMethod)}</td>
                           <td className="px-6 py-4 text-center">
                             <span className={`px-2.5 py-0.5 border rounded-full text-[10px] font-bold ${status.class}`}>
@@ -495,28 +496,28 @@ export default function Historico() {
                       <div className="min-w-0 flex-1 pr-3">
                         <p className="text-sm font-medium text-white truncate">{item.product.name}</p>
                         <p className="text-xs text-slate-500 mt-0.5">
-                          {item.quantity} x R$ {item.price.toFixed(2)}
+                          {item.quantity} x R$ {formatMoney(item.price)}
                         </p>
                       </div>
                       <span className="font-mono text-sm font-semibold text-white shrink-0 mt-0.5">
-                        R$ {(item.price * item.quantity).toFixed(2)}
+                        R$ {formatMoney((item.price * item.quantity))}
                       </span>
                     </div>
                   ))}
                   {selectedSale.discount > 0 && (
                     <div className="pt-3 pb-1 flex justify-between text-emerald-500 text-sm border-t border-slate-800">
                       <span>Desconto Aplicado:</span>
-                      <span>- R$ {selectedSale.discount.toFixed(2)}</span>
+                      <span>- R$ {formatMoney(selectedSale.discount)}</span>
                     </div>
                   )}
                   <div className={`${selectedSale.discount > 0 ? 'pt-1' : 'pt-3 border-t border-slate-800'} flex justify-between font-bold text-amber-500 text-sm`}>
                     <span>Total do Pedido:</span>
-                    <span>R$ {selectedSale.total.toFixed(2)}</span>
+                    <span>R$ {formatMoney(selectedSale.total)}</span>
                   </div>
                   {userRole === 'ADMIN' && (
                     <div className="flex justify-between font-bold text-emerald-500 text-sm">
                       <span>Lucro Líquido:</span>
-                      <span>R$ {(selectedSale.total - (selectedSale.totalCost || 0)).toFixed(2)}</span>
+                      <span>R$ {formatMoney((selectedSale.total - (selectedSale.totalCost || 0)))}</span>
                     </div>
                   )}
                 </div>

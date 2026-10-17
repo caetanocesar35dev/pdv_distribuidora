@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
+import { formatMoney } from '../utils/format';
+import { useConfirmFiado } from '../utils/fiado';
 import { 
   Coffee, Plus, X, Search, ShoppingCart, Trash2, CheckCircle2, User, CreditCard, DollarSign, Users, AlertCircle, Printer, MessageCircle
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
 
 export default function Comandas() {
+  const confirmFiadoComDivida = useConfirmFiado();
   const [tabs, setTabs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -172,6 +175,9 @@ export default function Comandas() {
       if (isFiado && !activeTab.customerId && newTabCustomer) {
          payload.customerId = Number(newTabCustomer);
       }
+      if (isFiado && !(await confirmFiadoComDivida(payload.customerId || activeTab.customerId))) {
+        return;
+      }
 
       const sale = await api.post(`/command-tabs/${activeTab.id}/close`, payload);
       
@@ -212,8 +218,8 @@ export default function Comandas() {
       <tr>
         <td style="padding:2px 0">${item.product.name.substring(0, 20)}</td>
         <td style="padding:2px 0;text-align:center">${item.quantity}</td>
-        <td style="padding:2px 0;text-align:right">R$ ${item.price.toFixed(2)}</td>
-        <td style="padding:2px 0;text-align:right">R$ ${(item.price * item.quantity).toFixed(2)}</td>
+        <td style="padding:2px 0;text-align:right">R$ ${formatMoney(item.price)}</td>
+        <td style="padding:2px 0;text-align:right">R$ ${formatMoney((item.price * item.quantity))}</td>
       </tr>
     `).join('');
 
@@ -238,10 +244,10 @@ export default function Comandas() {
           <tbody>${itemsHTML}</tbody>
         </table>
         <hr style="border:none;border-top:1px dashed #000;margin:4px 0;">
-        ${saleResult.discount > 0 ? `<div style="display:flex;justify-content:space-between;"><span>Desconto:</span><span>- R$ ${saleResult.discount.toFixed(2)}</span></div>` : ''}
+        ${saleResult.discount > 0 ? `<div style="display:flex;justify-content:space-between;"><span>Desconto:</span><span>- R$ ${formatMoney(saleResult.discount)}</span></div>` : ''}
         <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:14px;">
           <span>TOTAL:</span>
-          <span>R$ ${saleResult.total.toFixed(2)}</span>
+          <span>R$ ${formatMoney(saleResult.total)}</span>
         </div>
         <div>Forma Pgto: ${translatePayment(saleResult.paymentMethod)}</div>
         <hr style="border:none;border-top:1px dashed #000;margin:8px 0;">
@@ -412,7 +418,7 @@ export default function Comandas() {
                     </div>
                     <div className="text-right">
                       <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wider mb-0.5">Total</div>
-                      <div className="text-xl font-bold text-white tracking-tight">R$ {total.toFixed(2)}</div>
+                      <div className="text-xl font-bold text-white tracking-tight">R$ {formatMoney(total)}</div>
                     </div>
                   </div>
                 </div>
@@ -535,7 +541,7 @@ export default function Comandas() {
                       <option value="">Buscar produto na lista...</option>
                       {products.map(p => (
                         <option key={p.id} value={p.id} disabled={p.stock <= 0}>
-                          {p.name} (R$ {p.price.toFixed(2)}) - Est: {p.stock}
+                          {p.name} (R$ {formatMoney(p.price)}) - Est: {p.stock}
                         </option>
                       ))}
                     </select>
@@ -561,10 +567,10 @@ export default function Comandas() {
                       <div key={item.id} className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex items-center justify-between group">
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-white truncate">{item.product.name}</p>
-                          <p className="text-xs text-slate-500 mt-0.5">1x R$ {item.price.toFixed(2)}</p>
+                          <p className="text-xs text-slate-500 mt-0.5">1x R$ {formatMoney(item.price)}</p>
                         </div>
                         <div className="flex items-center gap-4">
-                          <p className="font-bold text-amber-500 text-sm shrink-0">R$ {item.price.toFixed(2)}</p>
+                          <p className="font-bold text-amber-500 text-sm shrink-0">R$ {formatMoney(item.price)}</p>
                           <button
                             onClick={() => removeItem(item.id)}
                             className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
@@ -597,7 +603,7 @@ export default function Comandas() {
                   
                   <div className="border-t border-slate-800 pt-6">
                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Total a Pagar</p>
-                    <h3 className="text-4xl font-black text-white tracking-tight">R$ {calculateTotal(activeTab).toFixed(2)}</h3>
+                    <h3 className="text-4xl font-black text-white tracking-tight">R$ {formatMoney(calculateTotal(activeTab))}</h3>
                   </div>
                 </div>
 
@@ -633,7 +639,7 @@ export default function Comandas() {
               {/* Resumo Valores */}
               <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 flex justify-between items-center">
                 <span className="text-slate-400 font-semibold uppercase text-xs tracking-wider">Total Consumido:</span>
-                <span className="text-2xl font-black text-amber-500">R$ {calculateTotal(activeTab).toFixed(2)}</span>
+                <span className="text-2xl font-black text-amber-500">R$ {formatMoney(calculateTotal(activeTab))}</span>
               </div>
 
               {/* Formas de Pagamento */}
@@ -694,7 +700,7 @@ export default function Comandas() {
                 <input
                   type="number"
                   min="0"
-                  step="0.01"
+                  step="0.001"
                   value={discount}
                   onChange={(e) => setDiscount(e.target.value)}
                   placeholder="0.00"
@@ -762,19 +768,19 @@ export default function Comandas() {
                   {saleResult.items.map((item, idx) => (
                     <div key={idx} className="flex justify-between text-slate-450">
                       <span>{item.product.name.substring(0, 20)} x{item.quantity}</span>
-                      <span>R$ {(item.price * item.quantity).toFixed(2)}</span>
+                      <span>R$ {formatMoney((item.price * item.quantity))}</span>
                     </div>
                   ))}
                 </div>
                 {saleResult.discount > 0 && (
                   <div className="flex justify-between text-emerald-400 text-xs pt-1 border-t border-slate-800/60">
                     <span>Desconto:</span>
-                    <span>- R$ {saleResult.discount.toFixed(2)}</span>
+                    <span>- R$ {formatMoney(saleResult.discount)}</span>
                   </div>
                 )}
                 <div className="border-t border-slate-800 pt-2 flex justify-between font-bold text-amber-500 text-sm">
                   <span>Total:</span>
-                  <span>R$ {saleResult.total.toFixed(2)}</span>
+                  <span>R$ {formatMoney(saleResult.total)}</span>
                 </div>
               </div>
 
