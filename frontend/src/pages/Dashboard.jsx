@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { formatMoney } from '../utils/format';
+import PeriodAnalysis from '../components/PeriodAnalysis';
 import { 
   TrendingUp, TrendingDown, DollarSign, Package, 
   ShoppingCart, AlertTriangle, Users, BarChart3
@@ -228,6 +229,9 @@ export default function Dashboard() {
 
         </div>
       </div>
+
+      {/* Análise por período (filtro de datas; inclui vendas antigas do caderno) */}
+      <PeriodAnalysis />
     </div>
   );
 }

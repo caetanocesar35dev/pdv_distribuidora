@@ -78,6 +78,11 @@ export class ProductsService {
     await this.findOne(id);
     const { customerPrices, ...productData } = data;
 
+    // Ajuste manual de estoque (correção de contagem): precisa ser inteiro e não negativo
+    if (data.stock !== undefined && (!Number.isInteger(Number(data.stock)) || Number(data.stock) < 0)) {
+      throw new BadRequestException('A quantidade em estoque deve ser um número inteiro maior ou igual a zero');
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const product = await tx.product.update({
         where: { id },

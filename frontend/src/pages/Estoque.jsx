@@ -10,6 +10,14 @@ import {
 
 export default function Estoque() {
   const [products, setProducts] = useState([]);
+  // Editar/excluir produto e ajustar estoque manualmente: somente administradores
+  const [isAdmin] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('user') || '{}').role === 'ADMIN';
+    } catch {
+      return false;
+    }
+  });
   const [bottleTypes, setBottleTypes] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [customerPrices, setCustomerPrices] = useState({}); // { [customerId]: preço digitado }
@@ -25,6 +33,7 @@ export default function Estoque() {
 
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm();
   const watchedPrice = watch('price');
+  const watchedStock = watch('stock');
 
   useEffect(() => {
     loadProducts();
@@ -94,6 +103,7 @@ export default function Estoque() {
         price: parseFloat(data.price),
         costPrice: parseFloat(data.costPrice || 0),
         packQuantity: parseInt(data.packQuantity) || 1,
+        stock: parseInt(data.stock),
         bottleTypeId: (data.requiresBottle && data.bottleTypeId) ? parseInt(data.bottleTypeId) : null,
         customerPrices: buildCustomerPricesPayload()
       };
@@ -151,6 +161,7 @@ export default function Estoque() {
       setValue('price', product.price);
       setValue('costPrice', product.costPrice || 0);
       setValue('packQuantity', product.packQuantity || 1);
+      setValue('stock', product.stock);
       setValue('requiresBottle', !!product.bottleTypeId);
       if (product.bottleTypeId) {
         setValue('bottleTypeId', product.bottleTypeId);
@@ -301,6 +312,8 @@ export default function Estoque() {
                             >
                               <ArrowUpRight className="w-4 h-4" />
                             </button>
+                            {isAdmin && (
+                            <>
                             <button
                               onClick={() => openModal('edit', product)}
                               className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-500/10 rounded-lg transition-colors cursor-pointer"
@@ -315,6 +328,8 @@ export default function Estoque() {
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
+                            </>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -500,7 +515,35 @@ export default function Estoque() {
                   />
                   {errors.packQuantity && <span className="text-red-400 text-xs mt-1 block">{errors.packQuantity.message}</span>}
                 </div>
+
+                <div>
+                  <label className="block text-slate-400 text-xs font-semibold uppercase tracking-wider mb-2">Estoque Atual (Unid.)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    {...register('stock', {
+                      required: 'Informe a quantidade em estoque',
+                      min: { value: 0, message: 'Estoque não pode ser negativo' },
+                      validate: v => Number.isInteger(Number(v)) || 'Use um número inteiro de unidades'
+                    })}
+                    className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500 transition-colors text-sm"
+                  />
+                  {errors.stock && <span className="text-red-400 text-xs mt-1 block">{errors.stock.message}</span>}
+                </div>
               </div>
+
+              {/* Aviso de ajuste manual de estoque (correção de contagem) */}
+              {watchedStock !== undefined && watchedStock !== '' && Number(watchedStock) !== selectedProduct.stock && (
+                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>
+                    Ajuste manual de estoque: de <strong>{selectedProduct.stock}</strong> para <strong>{Number(watchedStock)}</strong> unidades
+                    ({Number(watchedStock) > selectedProduct.stock ? '+' : ''}{Number(watchedStock) - selectedProduct.stock}).
+                    Use apenas para corrigir contagem; entradas de mercadoria devem ser feitas pelo botão de entrada.
+                  </span>
+                </div>
+              )}
 
               <div className="p-3 bg-slate-950/50 rounded-xl border border-slate-800/80 mt-2">
                 <div className="flex items-center gap-2 mb-2">

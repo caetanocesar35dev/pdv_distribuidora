@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
-import { formatMoney } from '../utils/format';
+import { formatMoney, formatPacks } from '../utils/format';
 import { useConfirmFiado } from '../utils/fiado';
 import CustomerSelect from '../components/CustomerSelect';
 import { signatureBlockHTML } from '../utils/receipt';
@@ -10,16 +10,6 @@ import {
   DollarSign, CheckCircle2, AlertCircle, Printer, X, CreditCard, Users, MessageCircle, Beer, Package
 } from 'lucide-react';
 import html2canvas from 'html2canvas';
-
-// Converte a quantidade em unidades para fardos/caixas + unidades avulsas (ex: "2 fardos + 3 un.")
-const formatPacks = (quantity, packQuantity) => {
-  const packs = Math.floor(quantity / packQuantity);
-  const loose = quantity % packQuantity;
-  const parts = [];
-  if (packs > 0) parts.push(`${packs} ${packs === 1 ? 'fardo' : 'fardos'}`);
-  if (loose > 0) parts.push(`${loose} un.`);
-  return parts.join(' + ');
-};
 
 export default function PDV() {
   const confirmFiadoComDivida = useConfirmFiado();

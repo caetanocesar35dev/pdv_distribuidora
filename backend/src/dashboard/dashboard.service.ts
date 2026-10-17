@@ -5,6 +5,88 @@ import { PrismaService } from '../prisma/prisma.service';
 export class DashboardService {
   constructor(private prisma: PrismaService) {}
 
+  // Análise de um período escolhido pelo usuário (inclui vendas antigas lançadas do caderno).
+  // tzOffset = Date.getTimezoneOffset() do navegador, para agrupar os dias no fuso local do usuário.
+  async getPeriodMetrics(start: Date, end: Date, tzOffset: number) {
+    const where = { createdAt: { gte: start, lte: end }, status: 'COMPLETED' as const };
+
+    const [sales, items] = await Promise.all([
+      this.prisma.sale.findMany({
+        where,
+        select: { total: true, totalCost: true, createdAt: true, paymentMethod: true, isRetroactive: true },
+      }),
+      this.prisma.saleItem.findMany({
+        where: { sale: where },
+        select: { productId: true, quantity: true, price: true },
+      }),
+    ]);
+
+    const revenue = sales.reduce((acc, s) => acc + s.total, 0);
+    const cost = sales.reduce((acc, s) => acc + s.totalCost, 0);
+
+    // Data local (AAAA-MM-DD) da venda no fuso do usuário
+    const localDate = (d: Date) => new Date(d.getTime() - tzOffset * 60000).toISOString().slice(0, 10);
+
+    // Gráfico: por dia em períodos de até 62 dias, senão por mês
+    const days = (end.getTime() - start.getTime()) / 86400000;
+    const byMonth = days > 62;
+    const chartMap = new Map<string, { key: string; revenue: number; profit: number }>();
+    for (const s of sales) {
+      const key = byMonth ? localDate(s.createdAt).slice(0, 7) : localDate(s.createdAt);
+      const entry = chartMap.get(key) || { key, revenue: 0, profit: 0 };
+      entry.revenue += s.total;
+      entry.profit += s.total - s.totalCost;
+      chartMap.set(key, entry);
+    }
+    const chartData = Array.from(chartMap.values())
+      .sort((a, b) => a.key.localeCompare(b.key))
+      .map(e => {
+        const [y, m, d] = e.key.split('-');
+        return { date: byMonth ? `${m}/${y}` : `${d}/${m}`, revenue: e.revenue, profit: e.profit };
+      });
+
+    // Formas de pagamento
+    const paymentMap = new Map<string, { method: string; total: number; count: number }>();
+    for (const s of sales) {
+      const entry = paymentMap.get(s.paymentMethod) || { method: s.paymentMethod, total: 0, count: 0 };
+      entry.total += s.total;
+      entry.count++;
+      paymentMap.set(s.paymentMethod, entry);
+    }
+
+    // Produtos mais vendidos no período (quantidade e faturamento bruto dos itens)
+    const productMap = new Map<number, { quantity: number; revenue: number }>();
+    for (const i of items) {
+      const entry = productMap.get(i.productId) || { quantity: 0, revenue: 0 };
+      entry.quantity += i.quantity;
+      entry.revenue += i.price * i.quantity;
+      productMap.set(i.productId, entry);
+    }
+    const topIds = Array.from(productMap.entries())
+      .sort((a, b) => b[1].quantity - a[1].quantity)
+      .slice(0, 10);
+    const productsInfo = await this.prisma.product.findMany({
+      where: { id: { in: topIds.map(([id]) => id) } },
+      select: { id: true, name: true, code: true },
+    });
+    const topProducts = topIds.map(([id, v]) => {
+      const info = productsInfo.find(p => p.id === id);
+      return { id, name: info?.name || 'Desconhecido', code: info?.code || '', quantity: v.quantity, revenue: v.revenue };
+    });
+
+    return {
+      revenue,
+      profit: revenue - cost,
+      count: sales.length,
+      averageTicket: sales.length ? revenue / sales.length : 0,
+      retroactiveCount: sales.filter(s => s.isRetroactive).length,
+      groupedBy: byMonth ? 'month' : 'day',
+      chartData,
+      byPayment: Array.from(paymentMap.values()).sort((a, b) => b.total - a.total),
+      topProducts,
+    };
+  }
+
   async getMetrics() {
     const now = new Date();
     

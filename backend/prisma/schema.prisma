@@ -75,6 +75,7 @@ model Sale {
   paymentMethod PaymentMethod
   status        SaleStatus    @default(COMPLETED)
   createdAt     DateTime      @default(now())
+  isRetroactive Boolean       @default(false) // Venda antiga lançada a partir do caderno (não mexe em estoque nem caixa)
   
   userId        Int?
   user          User?         @relation(fields: [userId], references: [id])

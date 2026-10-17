@@ -3,7 +3,7 @@ import { api } from '../services/api';
 import { formatMoney } from '../utils/format';
 import { 
   History, Search, Printer, XSquare, AlertTriangle, CheckCircle2, 
-  Calendar, Info, X, ChevronRight, Coffee, Tag
+  Calendar, Info, X, ChevronRight, Coffee, Tag, BookOpen
 } from 'lucide-react';
 
 // Item vendido com preço especial do cliente (diferente do preço de portaria da época).
@@ -11,6 +11,13 @@ import {
 const isSpecialPriceItem = (item) =>
   item.standardPrice !== null && item.standardPrice !== undefined && Math.abs(item.price - item.standardPrice) > 0.0005;
 const hasSpecialPrice = (sale) => (sale.items || []).some(isSpecialPriceItem);
+
+const RetroactiveBadge = () => (
+  <span className="flex items-center gap-1 bg-sky-500/15 text-sky-400 text-[10px] px-2 py-0.5 rounded-full font-sans uppercase tracking-wider" title="Venda antiga lançada do caderno (não mexeu no estoque nem no caixa)">
+    <BookOpen className="w-3 h-3" />
+    Caderno
+  </span>
+);
 
 const SpecialPriceBadge = () => (
   <span className="flex items-center gap-1 bg-emerald-500/15 text-emerald-400 text-[10px] px-2 py-0.5 rounded-full font-sans uppercase tracking-wider" title="Venda com preço especial do cliente">
@@ -96,7 +103,11 @@ export default function Historico() {
   };
 
   const handleCancelSale = async (id) => {
-    if (!window.confirm(`Tem certeza que deseja cancelar a venda #${id}? Os produtos voltarão ao estoque e o estorno será registrado no caixa.`)) {
+    const isRetroactive = sales.find(s => s.id === id)?.isRetroactive || selectedSale?.isRetroactive;
+    const message = isRetroactive
+      ? `Tem certeza que deseja cancelar a venda antiga #${id} (lançada do caderno)? O estoque e o caixa não serão alterados; se for fiado, o valor sai da dívida do cliente.`
+      : `Tem certeza que deseja cancelar a venda #${id}? Os produtos voltarão ao estoque e o estorno será registrado no caixa.`;
+    if (!window.confirm(message)) {
       return;
     }
     setError('');
@@ -437,6 +448,7 @@ export default function Historico() {
                                 Comanda
                               </span>
                             )}
+                            {sale.isRetroactive && <RetroactiveBadge />}
                             {hasSpecialPrice(sale) && <SpecialPriceBadge />}
                           </td>
                           <td className="px-6 py-4 text-xs text-slate-400">
@@ -498,6 +510,12 @@ export default function Historico() {
                     <p className="text-slate-400 text-xs mt-1.5 font-medium border-l-2 border-blue-500 pl-2">
                       Cliente: <span className="text-white font-bold">{selectedSale.customer.name}</span>
                       {selectedSale.customer.phone && <span className="text-slate-500 ml-1">({selectedSale.customer.phone})</span>}
+                    </p>
+                  )}
+                  {selectedSale.isRetroactive && (
+                    <p className="text-sky-400 text-xs mt-1.5 font-medium border-l-2 border-sky-500 pl-2 flex items-center gap-1.5">
+                      <BookOpen className="w-3.5 h-3.5" />
+                      Venda antiga lançada do caderno (não alterou estoque nem caixa)
                     </p>
                   )}
                   {hasSpecialPrice(selectedSale) && (

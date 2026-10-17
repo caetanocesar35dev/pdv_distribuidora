@@ -1,7 +1,7 @@
 import { Routes, Route, Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { 
-  Beer, ShoppingCart, DollarSign, Package, History, LogOut, User, Users, BarChart3, Key, AlertTriangle, Coffee
+  Beer, ShoppingCart, DollarSign, Package, History, LogOut, User, Users, BarChart3, Key, AlertTriangle, Coffee, BookOpen
 } from 'lucide-react';
 import { api } from './services/api';
 
@@ -15,6 +15,7 @@ import Clientes from './pages/Clientes';
 import Dashboard from './pages/Dashboard';
 import Usuarios from './pages/Usuarios';
 import Vasilhames from './pages/Vasilhames';
+import VendasAntigas from './pages/VendasAntigas';
 
 // Componente para proteção de rotas
 function PrivateRoute({ children }) {
@@ -89,6 +90,7 @@ function Layout() {
     { path: '/historico', label: 'Histórico de Vendas', icon: History },
     { path: '/clientes', label: 'Clientes', icon: Users },
     { path: '/vasilhames', label: 'Vasilhames', icon: Package },
+    ...(userRole === 'ADMIN' ? [{ path: '/vendas-antigas', label: 'Vendas Antigas', icon: BookOpen }] : []),
     ...(userRole === 'ADMIN' ? [{ path: '/usuarios', label: 'Usuários', icon: User }] : [])
   ];
 
@@ -182,6 +184,7 @@ function Layout() {
             <Route path="/historico" element={<Historico />} />
             <Route path="/clientes" element={<Clientes />} />
             <Route path="/vasilhames" element={<Vasilhames />} />
+            <Route path="/vendas-antigas" element={userRole === 'ADMIN' ? <VendasAntigas /> : <Navigate to="/pdv" replace />} />
             <Route path="/usuarios" element={userRole === 'ADMIN' ? <Usuarios /> : <Navigate to="/pdv" replace />} />
             <Route path="*" element={<Navigate to={userRole === 'ADMIN' ? "/dashboard" : "/pdv"} replace />} />
           </Routes>
