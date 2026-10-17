@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
 import { formatMoney } from '../utils/format';
 import { useConfirmFiado } from '../utils/fiado';
+import CustomerSelect from '../components/CustomerSelect';
+import { signatureBlockHTML } from '../utils/receipt';
 import { 
   Coffee, Plus, X, Search, ShoppingCart, Trash2, CheckCircle2, User, CreditCard, DollarSign, Users, AlertCircle, Printer, MessageCircle
 } from 'lucide-react';
@@ -251,6 +253,7 @@ export default function Comandas() {
         </div>
         <div>Forma Pgto: ${translatePayment(saleResult.paymentMethod)}</div>
         <hr style="border:none;border-top:1px dashed #000;margin:8px 0;">
+        ${signatureBlockHTML(customers.find(c => c.id === saleResult.customerId)?.name)}
         <div style="text-align:center;margin-top:8px;">Obrigado pela preferência!</div>
         <div style="text-align:center;font-size:8px;">Sistema PDV Distribuidora</div>
       </div>
@@ -458,16 +461,13 @@ export default function Comandas() {
 
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Cliente (Opcional - Fiado)</label>
-                <select
+                <CustomerSelect
+                  customers={customers}
                   value={newTabCustomer}
-                  onChange={(e) => setNewTabCustomer(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all"
-                >
-                  <option value="">Nenhum</option>
-                  {customers.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
+                  onChange={setNewTabCustomer}
+                  placeholder="Nenhum (digite para buscar)"
+                  className="py-3 bg-slate-950 border border-slate-800 rounded-xl"
+                />
               </div>
 
               <div className="pt-4">
@@ -679,16 +679,13 @@ export default function Comandas() {
                   <label className="block text-xs font-semibold text-amber-400 mb-2 uppercase tracking-wider">
                     Cliente do Fiado <span className="text-red-400">*</span>
                   </label>
-                  <select
+                  <CustomerSelect
+                    customers={customers}
                     value={newTabCustomer || (activeTab.customer?.id || '')}
-                    onChange={(e) => setNewTabCustomer(e.target.value)}
-                    className="w-full bg-slate-900 border border-slate-800 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-amber-500"
-                  >
-                    <option value="">Selecione o Cliente...</option>
-                    {customers.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
+                    onChange={setNewTabCustomer}
+                    placeholder="Digite o nome do cliente..."
+                    className="py-2 bg-slate-900 border border-slate-800 rounded-lg"
+                  />
                 </div>
               )}
 

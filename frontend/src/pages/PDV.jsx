@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
 import { formatMoney } from '../utils/format';
 import { useConfirmFiado } from '../utils/fiado';
+import CustomerSelect from '../components/CustomerSelect';
+import { signatureBlockHTML } from '../utils/receipt';
 import {
   Search, Plus, Minus, Trash2, ShoppingCart,
   DollarSign, CheckCircle2, AlertCircle, Printer, X, CreditCard, Users, MessageCircle, Beer, Package
@@ -360,6 +362,7 @@ export default function PDV() {
         </div>
         <div>Forma Pgto: ${translatePayment(saleResult.paymentMethod)}</div>
         <hr style="border:none;border-top:1px dashed #000;margin:8px 0;">
+        ${signatureBlockHTML(customers.find(c => c.id === saleResult.customerId)?.name)}
         <div style="text-align:center;margin-top:8px;">Obrigado pela preferência!</div>
         <div style="text-align:center;font-size:8px;">Sistema PDV Distribuidora</div>
       </div>
@@ -740,16 +743,13 @@ export default function PDV() {
                 <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">
                   Cliente {paymentMethod === 'CREDIT_STORE' ? <span className="text-red-400">(Obrigatório)</span> : '(Opcional)'}
                 </label>
-                <select
+                <CustomerSelect
+                  customers={customers}
                   value={selectedCustomer}
-                  onChange={(e) => setSelectedCustomer(e.target.value)}
-                  className={`w-full px-4 py-2.5 bg-slate-950 border ${paymentMethod === 'CREDIT_STORE' && !selectedCustomer ? 'border-red-500/50' : 'border-slate-800'} rounded-xl text-white focus:outline-none focus:border-amber-500 transition-colors text-sm`}
-                >
-                  <option value="">Selecione o Cliente...</option>
-                  {customers.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
+                  onChange={setSelectedCustomer}
+                  placeholder="Digite o nome do cliente..."
+                  className={`py-2.5 bg-slate-950 border ${paymentMethod === 'CREDIT_STORE' && !selectedCustomer ? 'border-red-500/50' : 'border-slate-800'} rounded-xl`}
+                />
               </div>
 
               <div className="mt-4 pt-4 border-t border-slate-800/80">

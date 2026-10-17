@@ -204,6 +204,14 @@ export default function Historico() {
           </div>
           <div>Forma Pgto: {translatePayment(selectedSale.paymentMethod)}</div>
           <div className="border-b border-dashed border-black my-2"></div>
+          {selectedSale.customer && (
+            <>
+              <div className="mt-8 border-t border-dashed border-black"></div>
+              <div className="text-center mt-1">{selectedSale.customer.name}</div>
+              <div className="text-center text-[10px]">Assinatura do cliente</div>
+              <div className="border-b border-dashed border-black my-2"></div>
+            </>
+          )}
           <div className="text-center mt-4">Comprovante de Venda Não Fiscal</div>
           <div className="text-center text-[8px]">Sistema PDV Distribuidora</div>
         </div>
