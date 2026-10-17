@@ -34,6 +34,7 @@ export default function PDV() {
   const [paymentMethod, setPaymentMethod] = useState('MONEY');
   const [customers, setCustomers] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState('');
+  const [customerPrices, setCustomerPrices] = useState({}); // { [productId]: preço especial do cliente selecionado }
   const [isFinishing, setIsFinishing] = useState(false);
   const [saleResult, setSaleResult] = useState(null);
   const [error, setError] = useState('');
@@ -74,6 +75,27 @@ export default function PDV() {
       console.error('Erro ao carregar produtos:', err);
     }
   };
+
+  // Ao trocar o cliente, carrega os preços especiais dele (sem cliente = preço de portaria)
+  useEffect(() => {
+    if (!selectedCustomer) {
+      setCustomerPrices({});
+      return;
+    }
+    let cancelled = false;
+    api.get(`/customers/${selectedCustomer}/prices`)
+      .then(prices => {
+        if (!cancelled) setCustomerPrices(Object.fromEntries(prices.map(p => [p.productId, p.price])));
+      })
+      .catch(() => {
+        if (!cancelled) setError('Erro ao carregar os preços especiais do cliente');
+      });
+    return () => { cancelled = true; };
+  }, [selectedCustomer]);
+
+  // Preço unitário do produto para o cliente selecionado
+  const getUnitPrice = (product) => customerPrices[product.id] ?? product.price;
+  const hasSpecialPrice = (product) => customerPrices[product.id] !== undefined && customerPrices[product.id] !== product.price;
 
   const loadCustomers = async () => {
     try {
@@ -220,7 +242,8 @@ export default function PDV() {
     setError('');
   };
 
-  const cartTotal = cart.reduce((acc, item) => acc + (item.product.price * (Number(item.quantity) || 0)), 0);
+  const cartTotal = cart.reduce((acc, item) => acc + (getUnitPrice(item.product) * (Number(item.quantity) || 0)), 0);
+  const specialItemsCount = cart.filter(item => hasSpecialPrice(item.product)).length;
   const discountValue = Number(discount) || 0;
   const finalTotal = cartTotal - discountValue;
 
@@ -513,6 +536,31 @@ export default function PDV() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start shrink-0">
         {/* Coluna do carrinho fica fixa na tela enquanto a página rola */}
         <div className="lg:col-span-2 flex flex-col gap-4 overflow-hidden h-[70vh] lg:h-[calc(100vh-9rem)] lg:sticky lg:top-0">
+          {/* Cliente: selecionado primeiro, pois define os preços (especial do cliente ou portaria) */}
+          <div className="bg-slate-900/40 border border-slate-800 p-4 rounded-2xl flex flex-col md:flex-row md:items-center gap-3 shrink-0">
+            <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider shrink-0 md:w-20">
+              <span className="flex items-center gap-1.5"><Users className="w-4 h-4 text-amber-500" /> Cliente</span>
+              {paymentMethod === 'CREDIT_STORE' && <span className="text-red-400 text-[10px] block mt-0.5">(Obrigatório)</span>}
+            </label>
+            <div className="flex-1">
+              <CustomerSelect
+                customers={customers}
+                value={selectedCustomer}
+                onChange={setSelectedCustomer}
+                placeholder="Digite o nome do cliente (vazio = preço de portaria)..."
+                className={`py-2.5 bg-slate-950 border ${paymentMethod === 'CREDIT_STORE' && !selectedCustomer ? 'border-red-500/50' : 'border-slate-800'} rounded-xl`}
+              />
+            </div>
+            <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full shrink-0 ${selectedCustomer && Object.keys(customerPrices).length > 0 ? 'text-emerald-400 bg-emerald-500/10 border border-emerald-500/20' : 'text-slate-400 bg-slate-800/60 border border-slate-700/60'}`}>
+              {!selectedCustomer
+                ? 'Preço de portaria'
+                : Object.keys(customerPrices).length === 0
+                  ? 'Cliente sem preço especial'
+                  : specialItemsCount > 0
+                    ? `Preço especial em ${specialItemsCount} ${specialItemsCount === 1 ? 'item' : 'itens'}`
+                    : 'Cliente com preço especial'}
+            </span>
+          </div>
           <div className="bg-slate-900/40 border border-slate-800 p-4 rounded-2xl flex flex-col md:flex-row gap-4 shrink-0">
             <form onSubmit={handleAddByCode} className="flex-1 flex gap-2">
               <div className="relative flex-1">
@@ -558,7 +606,7 @@ export default function PDV() {
               <datalist id="products-datalist">
                 {products.map(p => (
                   <option key={p.id} value={p.name}>
-                    Estoque: {p.stock} - R$ {formatMoney(p.price)}
+                    Estoque: {p.stock} - R$ {formatMoney(getUnitPrice(p))}{hasSpecialPrice(p) ? ' (preço especial)' : ''}
                   </option>
                 ))}
               </datalist>
@@ -620,7 +668,15 @@ export default function PDV() {
                     <div className="flex items-center gap-6">
                       <div className="text-right shrink-0">
                         <p className="text-xs text-slate-500">Subtotal</p>
-                        <p className="font-bold text-sm text-amber-500 mt-0.5">R$ {formatMoney((item.product.price * item.quantity))}</p>
+                        <p className="font-bold text-sm text-amber-500 mt-0.5">R$ {formatMoney((getUnitPrice(item.product) * item.quantity))}</p>
+                        {hasSpecialPrice(item.product) ? (
+                          <div className="mt-1 flex flex-col items-end gap-0.5">
+                            <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">Preço especial</span>
+                            <span className="text-[11px] text-slate-400">un. R$ {formatMoney(getUnitPrice(item.product))} <span className="line-through text-slate-600">R$ {formatMoney(item.product.price)}</span></span>
+                          </div>
+                        ) : (
+                          <p className="text-[11px] text-slate-500 mt-1">un. R$ {formatMoney(item.product.price)}</p>
+                        )}
                       </div>
 
                       <div className="flex flex-col items-center gap-1">
@@ -739,18 +795,12 @@ export default function PDV() {
                 })}
               </div>
 
-              <div className="mt-4 pt-4 border-t border-slate-800/80">
-                <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">
-                  Cliente {paymentMethod === 'CREDIT_STORE' ? <span className="text-red-400">(Obrigatório)</span> : '(Opcional)'}
-                </label>
-                <CustomerSelect
-                  customers={customers}
-                  value={selectedCustomer}
-                  onChange={setSelectedCustomer}
-                  placeholder="Digite o nome do cliente..."
-                  className={`py-2.5 bg-slate-950 border ${paymentMethod === 'CREDIT_STORE' && !selectedCustomer ? 'border-red-500/50' : 'border-slate-800'} rounded-xl`}
-                />
-              </div>
+              {paymentMethod === 'CREDIT_STORE' && !selectedCustomer && (
+                <div className="mt-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  Venda fiado exige cliente: selecione o cliente no topo da tela.
+                </div>
+              )}
 
               <div className="mt-4 pt-4 border-t border-slate-800/80">
                 <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wider">

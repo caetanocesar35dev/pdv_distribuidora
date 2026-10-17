@@ -37,6 +37,7 @@ model Product {
   updatedAt DateTime   @updatedAt
   saleItems SaleItem[]
   commandItems CommandItem[]
+  customerPrices CustomerProductPrice[]
 
   // Campos de auditoria
   modifierId       Int?
@@ -107,8 +108,9 @@ model SaleItem {
   saleId    Int
   productId Int
   quantity  Int
-  price     Float
+  price     Float   // Preço efetivamente cobrado (portaria ou especial do cliente)
   costPrice Float   @default(0)
+  standardPrice Float? // Preço de portaria no momento da venda (null em vendas antigas)
   sale      Sale    @relation(fields: [saleId], references: [id])
   product   Product @relation(fields: [productId], references: [id])
 }
@@ -160,6 +162,7 @@ model Customer {
   commandTabs CommandTab[]
   bottleBalances CustomerBottleBalance[]
   bottleMovements BottleMovement[]
+  productPrices CustomerProductPrice[]
 }
 
 /// Histórico de pagamentos de dívidas (fiado) feitos pelos clientes
@@ -258,4 +261,19 @@ enum BottleMovementType {
   SUPPLIER_SEND     // Loja enviou vasilhame para fornecedor (Sai do estoque da loja)
   SUPPLIER_RECEIVE  // Loja recebeu vasilhame do fornecedor (Entra no estoque da loja)
   MANUAL_ADJUSTMENT // Ajuste manual de estoque
+}
+
+/// Preço especial de um produto para um cliente específico. Sem registro, vale o preço de portaria (Product.price).
+model CustomerProductPrice {
+  id         Int      @id @default(autoincrement())
+  customerId Int
+  productId  Int
+  price      Float
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, productId])
 }

@@ -27,7 +27,16 @@ export class SalesService {
 
       let total = 0;
       let totalCost = 0;
-      const saleItemsData: { productId: number; quantity: number; price: number; costPrice: number }[] = [];
+      const saleItemsData: { productId: number; quantity: number; price: number; costPrice: number; standardPrice: number }[] = [];
+
+      // Preços especiais do cliente (sem registro para o produto = preço de portaria)
+      const customerPrices = new Map<number, number>();
+      if (body.customerId) {
+        const prices = await tx.customerProductPrice.findMany({
+          where: { customerId: body.customerId, productId: { in: body.items.map(i => i.productId) } },
+        });
+        prices.forEach(p => customerPrices.set(p.productId, p.price));
+      }
       const stockUpdates: { productId: number; newStock: number }[] = [];
 
       // 2. Validar estoque e calcular o total com base no preço do cadastro (preço fixo)
@@ -44,13 +53,15 @@ export class SalesService {
           throw new NotFoundException(`Produto com ID ${item.productId} não encontrado.`);
         }
 
-        if (product.stock < item.quantity) {
+        // Em comandas o estoque já foi baixado ao adicionar o item, então não valida de novo
+        if (!body.skipStockUpdate && product.stock < item.quantity) {
           throw new BadRequestException(
             `Estoque insuficiente para o produto "${product.name}". Estoque atual: ${product.stock}, solicitado: ${item.quantity}.`
           );
         }
 
-        const itemTotal = product.price * item.quantity;
+        const unitPrice = customerPrices.get(product.id) ?? product.price;
+        const itemTotal = unitPrice * item.quantity;
         const itemTotalCost = product.costPrice * item.quantity;
         total += itemTotal;
         totalCost += itemTotalCost;
@@ -58,8 +69,9 @@ export class SalesService {
         saleItemsData.push({
           productId: product.id,
           quantity: item.quantity,
-          price: product.price,
+          price: unitPrice,
           costPrice: product.costPrice,
+          standardPrice: product.price,
         });
 
         stockUpdates.push({

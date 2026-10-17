@@ -3,8 +3,21 @@ import { api } from '../services/api';
 import { formatMoney } from '../utils/format';
 import { 
   History, Search, Printer, XSquare, AlertTriangle, CheckCircle2, 
-  Calendar, Info, X, ChevronRight, Coffee
+  Calendar, Info, X, ChevronRight, Coffee, Tag
 } from 'lucide-react';
+
+// Item vendido com preço especial do cliente (diferente do preço de portaria da época).
+// Vendas antigas não têm standardPrice e são consideradas preço de portaria.
+const isSpecialPriceItem = (item) =>
+  item.standardPrice !== null && item.standardPrice !== undefined && Math.abs(item.price - item.standardPrice) > 0.0005;
+const hasSpecialPrice = (sale) => (sale.items || []).some(isSpecialPriceItem);
+
+const SpecialPriceBadge = () => (
+  <span className="flex items-center gap-1 bg-emerald-500/15 text-emerald-400 text-[10px] px-2 py-0.5 rounded-full font-sans uppercase tracking-wider" title="Venda com preço especial do cliente">
+    <Tag className="w-3 h-3" />
+    Preço especial
+  </span>
+);
 
 export default function Historico() {
   const [sales, setSales] = useState([]);
@@ -424,6 +437,7 @@ export default function Historico() {
                                 Comanda
                               </span>
                             )}
+                            {hasSpecialPrice(sale) && <SpecialPriceBadge />}
                           </td>
                           <td className="px-6 py-4 text-xs text-slate-400">
                             {new Date(sale.createdAt).toLocaleString('pt-BR')}
@@ -486,6 +500,12 @@ export default function Historico() {
                       {selectedSale.customer.phone && <span className="text-slate-500 ml-1">({selectedSale.customer.phone})</span>}
                     </p>
                   )}
+                  {hasSpecialPrice(selectedSale) && (
+                    <p className="text-emerald-400 text-xs mt-1.5 font-medium border-l-2 border-emerald-500 pl-2 flex items-center gap-1.5">
+                      <Tag className="w-3.5 h-3.5" />
+                      Venda com preço especial do cliente (não foi usado o preço de portaria)
+                    </p>
+                  )}
                 </div>
                 <button 
                   onClick={() => setSelectedSale(null)}
@@ -505,6 +525,11 @@ export default function Historico() {
                         <p className="text-sm font-medium text-white truncate">{item.product.name}</p>
                         <p className="text-xs text-slate-500 mt-0.5">
                           {item.quantity} x R$ {formatMoney(item.price)}
+                          {isSpecialPriceItem(item) && (
+                            <span className="ml-2 text-emerald-400">
+                              preço especial <span className="text-slate-600">(portaria <span className="line-through">R$ {formatMoney(item.standardPrice)}</span>)</span>
+                            </span>
+                          )}
                         </p>
                       </div>
                       <span className="font-mono text-sm font-semibold text-white shrink-0 mt-0.5">

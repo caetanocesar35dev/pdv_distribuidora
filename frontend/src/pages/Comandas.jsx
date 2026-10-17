@@ -159,6 +159,28 @@ export default function Comandas() {
     return tab.items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   };
 
+  // Cliente escolhido só no fechamento (comanda sem cliente): busca os preços especiais dele
+  // para mostrar o total correto, pois a venda será recalculada com esses preços.
+  const closeCustomerId = isPaymentModalOpen && activeTab && !activeTab.customerId && paymentMethod === 'CREDIT_STORE'
+    ? newTabCustomer
+    : '';
+  const [closePrices, setClosePrices] = useState({});
+  useEffect(() => {
+    if (!closeCustomerId) {
+      setClosePrices({});
+      return;
+    }
+    let cancelled = false;
+    api.get(`/customers/${closeCustomerId}/prices`)
+      .then(prices => { if (!cancelled) setClosePrices(Object.fromEntries(prices.map(p => [p.productId, p.price]))); })
+      .catch(() => { if (!cancelled) setClosePrices({}); });
+    return () => { cancelled = true; };
+  }, [closeCustomerId]);
+
+  const closeTotal = activeTab?.items
+    ? activeTab.items.reduce((acc, item) => acc + ((closePrices[item.productId] ?? item.price) * item.quantity), 0)
+    : 0;
+
   const handleFinishTab = async () => {
     if (!activeTab || activeTab.items.length === 0) return;
     setIsFinishing(true);
@@ -183,15 +205,8 @@ export default function Comandas() {
 
       const sale = await api.post(`/command-tabs/${activeTab.id}/close`, payload);
       
-      const fullSale = {
-         ...sale,
-         items: activeTab.items.map(i => ({
-             product: i.product,
-             quantity: i.quantity,
-             price: i.price
-         }))
-      };
-      setSaleResult(fullSale);
+      // Usa os itens da venda gerada (com os preços realmente cobrados, inclusive preço especial)
+      setSaleResult(sale);
       
       const targetCustomerId = payload.customerId || activeTab.customerId;
       const customerObj = customers.find(c => c.id === Number(targetCustomerId));
@@ -639,7 +654,14 @@ export default function Comandas() {
               {/* Resumo Valores */}
               <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 flex justify-between items-center">
                 <span className="text-slate-400 font-semibold uppercase text-xs tracking-wider">Total Consumido:</span>
-                <span className="text-2xl font-black text-amber-500">R$ {formatMoney(calculateTotal(activeTab))}</span>
+                <div className="text-right">
+                  <span className="text-2xl font-black text-amber-500">R$ {formatMoney(closeTotal)}</span>
+                  {Math.abs(closeTotal - calculateTotal(activeTab)) > 0.0005 && (
+                    <p className="text-[11px] text-emerald-400 mt-0.5">
+                      Preço especial do cliente aplicado <span className="line-through text-slate-500">R$ {formatMoney(calculateTotal(activeTab))}</span>
+                    </p>
+                  )}
+                </div>
               </div>
 
               {/* Formas de Pagamento */}
@@ -679,13 +701,21 @@ export default function Comandas() {
                   <label className="block text-xs font-semibold text-amber-400 mb-2 uppercase tracking-wider">
                     Cliente do Fiado <span className="text-red-400">*</span>
                   </label>
-                  <CustomerSelect
-                    customers={customers}
-                    value={newTabCustomer || (activeTab.customer?.id || '')}
-                    onChange={setNewTabCustomer}
-                    placeholder="Digite o nome do cliente..."
-                    className="py-2 bg-slate-900 border border-slate-800 rounded-lg"
-                  />
+                  {activeTab.customerId ? (
+                    // Comanda já aberta com cliente: o fiado vai para ele (preços já aplicados nos itens)
+                    <div className="flex items-center gap-2 px-3 py-2 bg-slate-900 border border-slate-800 rounded-lg text-sm text-white">
+                      <Users className="w-4 h-4 text-amber-500" />
+                      {activeTab.customer?.name || 'Cliente da comanda'}
+                    </div>
+                  ) : (
+                    <CustomerSelect
+                      customers={customers}
+                      value={newTabCustomer}
+                      onChange={setNewTabCustomer}
+                      placeholder="Digite o nome do cliente..."
+                      className="py-2 bg-slate-900 border border-slate-800 rounded-lg"
+                    />
+                  )}
                 </div>
               )}
 
