@@ -4,7 +4,7 @@ import { api } from '../services/api';
 import { formatMoney, formatPacks } from '../utils/format';
 import { useConfirmFiado } from '../utils/fiado';
 import CustomerSelect from '../components/CustomerSelect';
-import { signatureBlockHTML } from '../utils/receipt';
+import { buildReceiptHTML, printReceiptHTML } from '../utils/receipt';
 import {
   Search, Plus, Minus, Trash2, ShoppingCart,
   DollarSign, CheckCircle2, AlertCircle, Printer, X, CreditCard, Users, MessageCircle, Beer, Package
@@ -335,75 +335,12 @@ export default function PDV() {
     setReturnedBottles(returnedBottles.filter(r => r.bottleTypeId !== bottleTypeId));
   };
 
-  const generateReceiptHTML = () => {
-    if (!saleResult) return '';
-    const cnpj = import.meta.env.VITE_COMPANY_CNPJ || '00.000.000/0001-00';
-    let itemsHTML = saleResult.items.map(item => `
-      <tr>
-        <td style="padding:2px 0">${item.product.name.substring(0, 20)}</td>
-        <td style="padding:2px 0;text-align:center">${item.quantity}</td>
-        <td style="padding:2px 0;text-align:right">R$ ${formatMoney(item.price)}</td>
-        <td style="padding:2px 0;text-align:right">R$ ${formatMoney((item.price * item.quantity))}</td>
-      </tr>
-    `).join('');
+  // Comprovante no tamanho da bobina configurada (VITE_RECEIPT_WIDTH: 58 ou 80 mm)
+  const generateReceiptHTML = () => buildReceiptHTML(saleResult, {
+    customerName: customers.find(c => c.id === saleResult?.customerId)?.name,
+  });
 
-    return `
-      <div style="width:72mm;font-family:monospace;font-size:12px;color:#000;padding:8px;">
-        <div style="text-align:center;font-weight:bold;font-size:14px;margin-bottom:4px;">DISTRIBUIDORA DE BEBIDAS</div>
-        <div style="text-align:center;margin-bottom:8px;">CNPJ: ${cnpj}</div>
-        <hr style="border:none;border-top:1px dashed #000;margin:4px 0;">
-        <div>COMPROVANTE NÃO FISCAL</div>
-        <div>Pedido: #${saleResult.id}</div>
-        <div>Data/Hora: ${new Date(saleResult.createdAt).toLocaleString('pt-BR')}</div>
-        <hr style="border:none;border-top:1px dashed #000;margin:4px 0;">
-        <table style="width:100%;font-size:11px;border-collapse:collapse;">
-          <thead>
-            <tr style="border-bottom:1px solid #000;">
-              <th style="text-align:left;padding:2px 0;">Item</th>
-              <th style="text-align:center;padding:2px 0;">Qtd</th>
-              <th style="text-align:right;padding:2px 0;">Unit</th>
-              <th style="text-align:right;padding:2px 0;">Total</th>
-            </tr>
-          </thead>
-          <tbody>${itemsHTML}</tbody>
-        </table>
-        <hr style="border:none;border-top:1px dashed #000;margin:4px 0;">
-        ${saleResult.discount > 0 ? `<div style="display:flex;justify-content:space-between;"><span>Desconto:</span><span>- R$ ${formatMoney(saleResult.discount)}</span></div>` : ''}
-        <div style="display:flex;justify-content:space-between;font-weight:bold;font-size:14px;">
-          <span>TOTAL:</span>
-          <span>R$ ${formatMoney(saleResult.total)}</span>
-        </div>
-        <div>Forma Pgto: ${translatePayment(saleResult.paymentMethod)}</div>
-        <hr style="border:none;border-top:1px dashed #000;margin:8px 0;">
-        ${signatureBlockHTML(customers.find(c => c.id === saleResult.customerId)?.name)}
-        <div style="text-align:center;margin-top:8px;">Obrigado pela preferência!</div>
-        <div style="text-align:center;font-size:8px;">Sistema PDV Distribuidora</div>
-      </div>
-    `;
-  };
-
-  const printReceipt = () => {
-    const receiptHTML = generateReceiptHTML();
-    const printWindow = window.open('', '_blank', 'width=400,height=600');
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Comprovante</title>
-          <style>
-            body { margin: 0; padding: 0; }
-            @page { size: 80mm auto; margin: 0; }
-          </style>
-        </head>
-        <body>${receiptHTML}</body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 300);
-  };
+  const printReceipt = () => printReceiptHTML(generateReceiptHTML());
 
   const formatPhoneMask = (value) => {
     let v = value.replace(/\D/g, '');
@@ -425,6 +362,7 @@ export default function PDV() {
     tempDiv.style.left = '-9999px';
     tempDiv.style.top = '0';
     tempDiv.style.background = 'white';
+    tempDiv.style.padding = '12px';
     tempDiv.innerHTML = generateReceiptHTML();
     document.body.appendChild(tempDiv);
 

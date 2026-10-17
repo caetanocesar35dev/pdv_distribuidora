@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
 import { formatMoney } from '../utils/format';
+import { buildReceiptHTML, printReceiptHTML } from '../utils/receipt';
 import { 
   History, Search, Printer, XSquare, AlertTriangle, CheckCircle2, 
   Calendar, Info, X, ChevronRight, Coffee, Tag, BookOpen
@@ -124,8 +125,15 @@ export default function Historico() {
     }
   };
 
+  // Reimpressão no tamanho da bobina configurada (VITE_RECEIPT_WIDTH: 58 ou 80 mm)
   const printReceipt = () => {
-    window.print();
+    if (!selectedSale) return;
+    printReceiptHTML(buildReceiptHTML(selectedSale, {
+      reprint: true,
+      customerName: selectedSale.customer?.name,
+      operatorName: selectedSale.user?.name,
+      canceled: selectedSale.status === 'CANCELED',
+    }));
   };
 
   const translatePayment = (method) => {
@@ -175,72 +183,6 @@ export default function Historico() {
   return (
     <div className="flex-1 p-6 font-sans text-white h-[calc(100vh-64px)] overflow-y-auto space-y-6">
       
-      {/* Impressão do Comprovante Não-Fiscal (Oculto em tela, exibido no Print) */}
-      {selectedSale && (
-        <div className="hidden print:block print:p-4 text-black bg-white w-[80mm] text-xs font-mono">
-          <div className="text-center font-bold text-sm mb-2">DISTRIBUIDORA DE BEBIDAS</div>
-          <div className="text-center mb-2">CNPJ: 00.000.000/0001-00</div>
-          <div className="border-b border-dashed border-black my-1"></div>
-          <div className="text-center font-bold">REIMPRESSÃO DE COMPROVANTE</div>
-          <div className="border-b border-dashed border-black my-1"></div>
-          <div>Pedido: #{selectedSale.id}</div>
-          <div>Data/Hora: {new Date(selectedSale.createdAt).toLocaleString('pt-BR')}</div>
-          {selectedSale.user && (
-            <div>Operador: {selectedSale.user.name}</div>
-          )}
-          {selectedSale.customer && (
-            <div>Cliente: {selectedSale.customer.name}</div>
-          )}
-          <div>Status: {selectedSale.status === 'CANCELED' ? 'CANCELADO' : 'CONCLUÍDO'}</div>
-          <div className="border-b border-dashed border-black my-1"></div>
-          
-          <table className="w-full text-xs text-left">
-            <thead>
-              <tr className="border-b border-black">
-                <th className="py-1">Item</th>
-                <th className="py-1 text-center">Qtd</th>
-                <th className="py-1 text-right">Unit</th>
-                <th className="py-1 text-right">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {selectedSale.items.map((item, idx) => (
-                <tr key={idx}>
-                  <td className="py-1">{item.product.name.substring(0, 18)}</td>
-                  <td className="py-1 text-center">{item.quantity}</td>
-                  <td className="py-1 text-right">R$ {formatMoney(item.price)}</td>
-                  <td className="py-1 text-right">R$ {formatMoney((item.price * item.quantity))}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <div className="border-b border-dashed border-black my-1"></div>
-          {selectedSale.discount > 0 && (
-            <div className="flex justify-between text-sm">
-              <span>Desconto:</span>
-              <span>- R$ {formatMoney(selectedSale.discount)}</span>
-            </div>
-          )}
-          <div className="flex justify-between font-bold text-sm">
-            <span>TOTAL:</span>
-            <span>R$ {formatMoney(selectedSale.total)}</span>
-          </div>
-          <div>Forma Pgto: {translatePayment(selectedSale.paymentMethod)}</div>
-          <div className="border-b border-dashed border-black my-2"></div>
-          {selectedSale.customer && (
-            <>
-              <div className="mt-8 border-t border-dashed border-black"></div>
-              <div className="text-center mt-1">{selectedSale.customer.name}</div>
-              <div className="text-center text-[10px]">Assinatura do cliente</div>
-              <div className="border-b border-dashed border-black my-2"></div>
-            </>
-          )}
-          <div className="text-center mt-4">Comprovante de Venda Não Fiscal</div>
-          <div className="text-center text-[8px]">Sistema PDV Distribuidora</div>
-        </div>
-      )}
-
       {/* Cabeçalho */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
         <div>
