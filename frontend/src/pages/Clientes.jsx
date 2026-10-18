@@ -419,8 +419,8 @@ export default function Clientes() {
                 <input
                   required
                   type="number"
-                  step="0.001"
-                  min="0.001"
+                  step="0.01"
+                  min="0.01"
                   max={payData.balance}
                   value={payData.amount}
                   onChange={e => setPayData({ ...payData, amount: e.target.value })}

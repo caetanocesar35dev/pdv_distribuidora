@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../services/api';
-import { formatMoney, formatPacks } from '../utils/format';
+import { formatMoney, formatPrice, formatPacks } from '../utils/format';
 import { useConfirmFiado } from '../utils/fiado';
 import CustomerSelect from '../components/CustomerSelect';
 import { buildReceiptHTML, printReceiptHTML } from '../utils/receipt';
@@ -534,7 +534,7 @@ export default function PDV() {
               <datalist id="products-datalist">
                 {products.map(p => (
                   <option key={p.id} value={p.name}>
-                    Estoque: {p.stock} - R$ {formatMoney(getUnitPrice(p))}{hasSpecialPrice(p) ? ' (preço especial)' : ''}
+                    Estoque: {p.stock} - R$ {formatPrice(getUnitPrice(p))}{hasSpecialPrice(p) ? ' (preço especial)' : ''}
                   </option>
                 ))}
               </datalist>
@@ -600,10 +600,10 @@ export default function PDV() {
                         {hasSpecialPrice(item.product) ? (
                           <div className="mt-1 flex flex-col items-end gap-0.5">
                             <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">Preço especial</span>
-                            <span className="text-[11px] text-slate-400">un. R$ {formatMoney(getUnitPrice(item.product))} <span className="line-through text-slate-600">R$ {formatMoney(item.product.price)}</span></span>
+                            <span className="text-[11px] text-slate-400">un. R$ {formatPrice(getUnitPrice(item.product))} <span className="line-through text-slate-600">R$ {formatPrice(item.product.price)}</span></span>
                           </div>
                         ) : (
-                          <p className="text-[11px] text-slate-500 mt-1">un. R$ {formatMoney(item.product.price)}</p>
+                          <p className="text-[11px] text-slate-500 mt-1">un. R$ {formatPrice(item.product.price)}</p>
                         )}
                       </div>
 
@@ -737,7 +737,7 @@ export default function PDV() {
                 <input
                   type="number"
                   min="0"
-                  step="0.001"
+                  step="0.01"
                   value={discount}
                   onChange={(e) => setDiscount(e.target.value.replace(',', '.'))}
                   placeholder="0.00"

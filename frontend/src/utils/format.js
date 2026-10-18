@@ -1,10 +1,18 @@
 const moneyFormatter = new Intl.NumberFormat('pt-BR', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+const priceFormatter = new Intl.NumberFormat('pt-BR', {
   minimumFractionDigits: 3,
   maximumFractionDigits: 3,
 });
 
-// Formata valores monetários no padrão brasileiro com 3 casas decimais (ex: 1.088,472)
+// Valores em dinheiro (subtotais, totais, caixa, fiado, dashboard): 2 casas (ex: 1.088,47)
 export const formatMoney = (value) => moneyFormatter.format(Number(value) || 0);
+
+// Preço unitário de produto (cadastro, preço especial por cliente, "un. R$"): 3 casas (ex: 4,125)
+export const formatPrice = (value) => priceFormatter.format(Number(value) || 0);
 
 // Converte a quantidade em unidades para fardos/caixas + unidades avulsas (ex: "2 fardos + 3 un.")
 export const formatPacks = (quantity, packQuantity) => {

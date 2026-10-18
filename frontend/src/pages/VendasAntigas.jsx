@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../services/api';
-import { formatMoney, formatPacks } from '../utils/format';
+import { formatMoney, formatPrice, formatPacks } from '../utils/format';
 import CustomerSelect from '../components/CustomerSelect';
 import {
   BookOpen, Search, Plus, Trash2, AlertCircle, CheckCircle2, Info,
@@ -271,7 +271,7 @@ export default function VendasAntigas() {
                       </span>
                       <span className="text-xs shrink-0">
                         {hasSpecialPrice(p) && <span className="text-emerald-400 mr-1.5">especial</span>}
-                        <span className="text-amber-400 font-semibold">R$ {formatMoney(getUnitPrice(p))}</span>
+                        <span className="text-amber-400 font-semibold">R$ {formatPrice(getUnitPrice(p))}</span>
                       </span>
                     </li>
                   ))}
@@ -328,10 +328,10 @@ export default function VendasAntigas() {
                           {hasSpecialPrice(item.product) ? (
                             <div className="mt-1 flex flex-col items-end gap-0.5">
                               <span className="text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded">Preço especial</span>
-                              <span className="text-[11px] text-slate-400">un. R$ {formatMoney(getUnitPrice(item.product))} <span className="line-through text-slate-600">R$ {formatMoney(item.product.price)}</span></span>
+                              <span className="text-[11px] text-slate-400">un. R$ {formatPrice(getUnitPrice(item.product))} <span className="line-through text-slate-600">R$ {formatPrice(item.product.price)}</span></span>
                             </div>
                           ) : (
-                            <p className="text-[11px] text-slate-500 mt-1">un. R$ {formatMoney(item.product.price)}</p>
+                            <p className="text-[11px] text-slate-500 mt-1">un. R$ {formatPrice(item.product.price)}</p>
                           )}
                         </div>
 
@@ -423,10 +423,10 @@ export default function VendasAntigas() {
               <input
                 type="number"
                 min="0"
-                step="0.001"
+                step="0.01"
                 value={discount}
                 onChange={(e) => setDiscount(e.target.value.replace(',', '.'))}
-                placeholder="0,000"
+                placeholder="0,00"
                 className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-amber-500 text-sm"
               />
             </div>

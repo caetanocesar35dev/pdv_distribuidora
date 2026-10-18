@@ -94,12 +94,16 @@ export class SalesService {
       }
 
       // 4. Aplicar Desconto
-      let discount = body.discount || 0;
+      // Preço unitário pode ter 3 casas (ex: 4,125), mas o valor cobrado é sempre em centavos
+      const roundCents = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+      total = roundCents(total);
+
+      let discount = roundCents(Number(body.discount) || 0);
       if (discount < 0) discount = 0;
       if (discount > total) {
         throw new BadRequestException('O desconto não pode ser maior que o valor total da venda.');
       }
-      total = total - discount;
+      total = roundCents(total - discount);
 
       // 5. Criar a venda com seus itens
       const sale = await tx.sale.create({

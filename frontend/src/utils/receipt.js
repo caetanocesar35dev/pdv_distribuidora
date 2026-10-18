@@ -1,4 +1,4 @@
-import { formatMoney } from './format';
+import { formatMoney, formatPrice } from './format';
 
 // Largura da bobina da impressora térmica, em mm (58 ou 80). Configurável no frontend/.env (VITE_RECEIPT_WIDTH).
 export const RECEIPT_WIDTH = Number(import.meta.env.VITE_RECEIPT_WIDTH) === 80 ? 80 : 58;
@@ -33,14 +33,14 @@ const itemsHTML = (items) => {
     return items.map(item => `
         <div style="margin:3px 0;">
           <div style="word-break:break-word;">${escapeHTML(item.product?.name)}</div>
-          ${row(`${item.quantity} x ${formatMoney(item.price)}`, formatMoney(item.price * item.quantity))}
+          ${row(`${item.quantity} x ${formatPrice(item.price)}`, formatMoney(item.price * item.quantity))}
         </div>`).join('');
   }
   const rows = items.map(item => `
           <tr>
             <td style="padding:2px 0">${escapeHTML((item.product?.name || '').substring(0, 20))}</td>
             <td style="padding:2px 0;text-align:center">${item.quantity}</td>
-            <td style="padding:2px 0;text-align:right">R$ ${formatMoney(item.price)}</td>
+            <td style="padding:2px 0;text-align:right">R$ ${formatPrice(item.price)}</td>
             <td style="padding:2px 0;text-align:right">R$ ${formatMoney(item.price * item.quantity)}</td>
           </tr>`).join('');
   return `

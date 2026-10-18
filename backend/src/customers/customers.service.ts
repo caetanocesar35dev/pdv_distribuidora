@@ -77,8 +77,9 @@ export class CustomersService {
       const customer = await tx.customer.findUnique({ where: { id } });
       if (!customer) throw new NotFoundException('Cliente não encontrado.');
 
-      if (customer.balance < amount) {
-        throw new BadRequestException(`O valor informado (R$ ${amount}) é maior que a dívida atual (R$ ${customer.balance}).`);
+      // Tolerância de meio centavo: a tela mostra a dívida arredondada em 2 casas
+      if (amount > customer.balance + 0.005) {
+        throw new BadRequestException(`O valor informado (R$ ${amount.toFixed(2)}) é maior que a dívida atual (R$ ${customer.balance.toFixed(2)}).`);
       }
 
       // Verifica se o caixa está aberto
@@ -102,7 +103,7 @@ export class CustomersService {
       // Abate no saldo do cliente
       const updatedCustomer = await tx.customer.update({
         where: { id },
-        data: { balance: customer.balance - amount },
+        data: { balance: Math.max(0, Math.round((customer.balance - amount) * 100) / 100) },
       });
 
       // Registra entrada no caixa

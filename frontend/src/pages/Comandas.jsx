@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
-import { formatMoney } from '../utils/format';
+import { formatMoney, formatPrice } from '../utils/format';
 import { useConfirmFiado } from '../utils/fiado';
 import CustomerSelect from '../components/CustomerSelect';
 import { buildReceiptHTML, printReceiptHTML } from '../utils/receipt';
@@ -494,7 +494,7 @@ export default function Comandas() {
                       <option value="">Buscar produto na lista...</option>
                       {products.map(p => (
                         <option key={p.id} value={p.id} disabled={p.stock <= 0}>
-                          {p.name} (R$ {formatMoney(p.price)}) - Est: {p.stock}
+                          {p.name} (R$ {formatPrice(p.price)}) - Est: {p.stock}
                         </option>
                       ))}
                     </select>
@@ -520,10 +520,10 @@ export default function Comandas() {
                       <div key={item.id} className="bg-slate-900 border border-slate-800 p-3 rounded-xl flex items-center justify-between group">
                         <div className="min-w-0">
                           <p className="text-sm font-semibold text-white truncate">{item.product.name}</p>
-                          <p className="text-xs text-slate-500 mt-0.5">1x R$ {formatMoney(item.price)}</p>
+                          <p className="text-xs text-slate-500 mt-0.5">1x R$ {formatPrice(item.price)}</p>
                         </div>
                         <div className="flex items-center gap-4">
-                          <p className="font-bold text-amber-500 text-sm shrink-0">R$ {formatMoney(item.price)}</p>
+                          <p className="font-bold text-amber-500 text-sm shrink-0">R$ {formatPrice(item.price)}</p>
                           <button
                             onClick={() => removeItem(item.id)}
                             className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
@@ -665,7 +665,7 @@ export default function Comandas() {
                 <input
                   type="number"
                   min="0"
-                  step="0.001"
+                  step="0.01"
                   value={discount}
                   onChange={(e) => setDiscount(e.target.value)}
                   placeholder="0.00"

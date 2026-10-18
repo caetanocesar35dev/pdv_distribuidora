@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Search, Users } from 'lucide-react';
-import { formatMoney } from '../utils/format';
+import { formatMoney, formatPrice } from '../utils/format';
 
 const normalize = (text) => (text || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
@@ -32,7 +32,7 @@ export default function CustomerPricesEditor({ customers, values, onChange, stan
             Preços especiais por cliente
           </h4>
           <p className="text-[11px] text-slate-500 mt-1">
-            Deixe vazio para o cliente pagar o preço de portaria{standard ? ` (R$ ${formatMoney(standard)})` : ''}.
+            Deixe vazio para o cliente pagar o preço de portaria{standard ? ` (R$ ${formatPrice(standard)})` : ''}.
           </p>
         </div>
         {specialCount > 0 && (
@@ -86,7 +86,7 @@ export default function CustomerPricesEditor({ customers, values, onChange, stan
                         min="0.001"
                         value={value}
                         onChange={(e) => onChange(c.id, e.target.value)}
-                        placeholder={standard ? formatMoney(standard) : 'Portaria'}
+                        placeholder={standard ? formatPrice(standard) : 'Portaria'}
                         className={`w-full pl-8 pr-2 py-1.5 bg-slate-950 border rounded-lg text-sm text-right focus:outline-none focus:border-amber-500 transition-colors placeholder-slate-600 ${isSpecial ? 'border-amber-500/40 text-amber-400' : 'border-slate-800 text-white'}`}
                       />
                     </div>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { formatMoney } from '../utils/format';
+import { formatMoney, formatPrice } from '../utils/format';
 import { buildReceiptHTML, printReceiptHTML } from '../utils/receipt';
 import { 
   History, Search, Printer, XSquare, AlertTriangle, CheckCircle2, 
@@ -484,10 +484,10 @@ export default function Historico() {
                       <div className="min-w-0 flex-1 pr-3">
                         <p className="text-sm font-medium text-white truncate">{item.product.name}</p>
                         <p className="text-xs text-slate-500 mt-0.5">
-                          {item.quantity} x R$ {formatMoney(item.price)}
+                          {item.quantity} x R$ {formatPrice(item.price)}
                           {isSpecialPriceItem(item) && (
                             <span className="ml-2 text-emerald-400">
-                              preço especial <span className="text-slate-600">(portaria <span className="line-through">R$ {formatMoney(item.standardPrice)}</span>)</span>
+                              preço especial <span className="text-slate-600">(portaria <span className="line-through">R$ {formatPrice(item.standardPrice)}</span>)</span>
                             </span>
                           )}
                         </p>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { formatMoney } from '../utils/format';
+import { formatMoney, formatPrice } from '../utils/format';
 import { useForm } from 'react-hook-form';
 import CustomerPricesEditor from '../components/CustomerPricesEditor';
 import { 
@@ -282,8 +282,8 @@ export default function Estoque() {
                       <tr key={product.id} className="hover:bg-slate-900/10 transition-colors">
                         <td className="px-6 py-4 font-mono text-xs text-slate-450">{product.code}</td>
                         <td className="px-6 py-4 font-semibold text-white">{product.name}</td>
-                        <td className="px-6 py-4 text-right font-bold text-amber-500">R$ {formatMoney(product.price)}</td>
-                        <td className="px-6 py-4 text-right font-bold text-slate-400">R$ {formatMoney((product.costPrice || 0))}</td>
+                        <td className="px-6 py-4 text-right font-bold text-amber-500">R$ {formatPrice(product.price)}</td>
+                        <td className="px-6 py-4 text-right font-bold text-slate-400">R$ {formatPrice((product.costPrice || 0))}</td>
                         <td className="px-6 py-4 text-center text-slate-400 text-xs">{product.packQuantity > 1 ? `${product.packQuantity} un.` : '-'}</td>
                         <td className="px-6 py-4 text-center">
                           <div className="flex flex-col items-center justify-center gap-1.5">

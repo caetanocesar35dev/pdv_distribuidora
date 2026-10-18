@@ -12,7 +12,7 @@ export default function Caixa() {
   const [history, setHistory] = useState([]);
 
   // States para formulários
-  const [initialBalance, setInitialBalance] = useState('0.000');
+  const [initialBalance, setInitialBalance] = useState('0.00');
   const [movementType, setMovementType] = useState('IN');
   const [movementAmount, setMovementAmount] = useState('');
   const [movementDesc, setMovementDesc] = useState('');
@@ -56,7 +56,7 @@ export default function Caixa() {
       });
       setSuccess('Caixa aberto com sucesso!');
       setCurrentCash(data);
-      setInitialBalance('0.000');
+      setInitialBalance('0.00');
       loadCashData();
     } catch (err) {
       setError(err.message || 'Erro ao abrir o caixa');
@@ -183,7 +183,7 @@ export default function Caixa() {
                   <label className="block text-slate-350 text-xs font-semibold uppercase tracking-wider mb-2">Fundo de Troco (R$)</label>
                   <input
                     type="number"
-                    step="0.001"
+                    step="0.01"
                     min="0"
                     value={initialBalance}
                     onChange={(e) => {
@@ -326,7 +326,7 @@ export default function Caixa() {
                 <label className="block text-slate-355 text-xs font-semibold uppercase tracking-wider mb-2">Valor (R$)</label>
                 <input
                   type="number"
-                  step="0.001"
+                  step="0.01"
                   min="0"
                   value={movementAmount}
                   onChange={(e) => {
